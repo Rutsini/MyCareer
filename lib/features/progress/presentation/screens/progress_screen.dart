@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/subject.dart';
+import '../../../../domain/services/career_progress_calculator.dart';
 import '../../../profile/application/profile_controller.dart';
 import '../../../subjects/application/subject_controller.dart';
 
@@ -17,47 +18,30 @@ class ProgressScreen extends ConsumerWidget {
             loading: () => const LinearProgressIndicator(),
             error: (_, __) => const Text('No pudimos cargar tu progreso.'),
             data: (all) {
-              final graded = all
-                  .where((s) =>
-                      (s.finalOutcome == FinalOutcome.approved ||
-                          s.finalOutcome == FinalOutcome.promoted) &&
-                      s.finalGrade != null)
-                  .toList();
-              final avg = graded.isEmpty
-                  ? null
-                  : graded.fold<double>(0, (sum, s) => sum + s.finalGrade!) /
-                      graded.length;
-              final obtained = all
-                  .where((s) =>
-                      s.subjectType == SubjectType.elective &&
-                      (s.finalOutcome == FinalOutcome.approved ||
-                          s.finalOutcome == FinalOutcome.promoted))
-                  .fold<double>(0, (sum, s) => sum + (s.electivePoints ?? 0));
-              final active = all
-                  .where((s) =>
-                      s.subjectType == SubjectType.elective &&
-                      s.trackingMode == TrackingMode.tracked &&
-                      s.courseStatus == CourseStatus.active)
-                  .fold<double>(0, (sum, s) => sum + (s.electivePoints ?? 0));
+              final summary = CareerProgressCalculator.calculate(
+                all,
+                profile: profile.valueOrNull,
+              );
               final history = all.where((s) => s.finalOutcome != null).toList()
                 ..sort((a, b) => b.academicYear.compareTo(a.academicYear));
               final grouped = <int, List<Subject>>{};
               for (final s in history) {
                 grouped.putIfAbsent(s.academicYear, () => []).add(s);
               }
-              final required =
-                  profile.valueOrNull?.career.requiredElectivePoints;
+              final required = summary.electiveRequired;
               return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Wrap(spacing: 12, runSpacing: 12, children: [
                       _Metric(
                           'Promedio general',
-                          avg == null
+                          summary.generalAverage == null
                               ? '—'
-                              : avg.toStringAsFixed(2).replaceAll('.', ',')),
-                      _Metric('Puntos obtenidos', _n(obtained)),
-                      _Metric('En curso', _n(active)),
+                              : summary.generalAverage!
+                                  .toStringAsFixed(2)
+                                  .replaceAll('.', ',')),
+                      _Metric('Puntos obtenidos', _n(summary.electiveObtained)),
+                      _Metric('En curso', _n(summary.electiveInProgress)),
                       _Metric('Requeridos',
                           required == null ? 'Sin configurar' : _n(required))
                     ]),

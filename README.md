@@ -1,4 +1,4 @@
-# MyCareer — v0.4
+# MyCareer — v0.5
 
 Aplicación académica personal desarrollada con Flutter para Android y Web.
 
@@ -6,9 +6,9 @@ MyCareer permite registrar y organizar la trayectoria académica de un estudiant
 
 ## Estado actual
 
-Versión: **0.4.0+4**
+Versión: **0.5.0+5**
 
-La v0.4 incluye todo lo anterior y además:
+La v0.5 incluye todo lo anterior y además:
 
 - Autenticación mediante correo electrónico y contraseña.
 - Integración con Firebase Authentication.
@@ -38,10 +38,18 @@ La v0.4 incluye todo lo anterior y además:
 - Resolución unificada de evaluaciones y recuperatorios, sin doble conteo.
 - Requisitos faltantes y nota exacta requerida cuando el cálculo es determinístico.
 - Pestaña Condiciones para crear, editar, habilitar, reordenar y eliminar reglas.
+- Dashboard académico completo, responsive en Android y Web.
+- Resumen del cursado calculado para el año académico seleccionado.
+- Materias en promoción, regulares, en riesgo, sin datos y no regularizadas.
+- Alertas académicas y evaluaciones vencidas pendientes priorizadas.
+- Próximas evaluaciones y próxima evaluación por materia.
+- Promedio general y progreso de puntos electivos compartidos con Progreso.
+- Selector local de año y accesos rápidos a materias, evaluaciones, calendario y
+  progreso.
 
 Todavía no se incluyen:
 
-- Asistencia y dashboard académico completo.
+- Asistencia.
 - Notificaciones.
 
 Estas funcionalidades se incorporarán en versiones posteriores.
@@ -88,7 +96,9 @@ lib/
 │   └── widgets/
 │
 ├── domain/
-│   └── entities/
+│   ├── entities/
+│   ├── models/
+│   └── services/
 │
 ├── data/
 │   ├── firebase/
@@ -111,6 +121,12 @@ lib/
 Las entidades de dominio permanecen independientes de Firebase.
 
 La UI no accede directamente a Firestore.
+
+`DashboardCalculator` agrupa en memoria materias y evaluaciones ya observadas por
+los providers, evalúa cada materia una sola vez con `AcademicEngine` y reutiliza
+`EvaluationCalculator` para promedios y próximas fechas. `CareerProgressCalculator`
+mantiene una única semántica para el promedio general y los puntos electivos en
+Inicio y Progreso. No se persisten resultados derivados del dashboard.
 
 ## Firestore
 
@@ -150,10 +166,11 @@ users
         └── ...
 ```
 
-No existen todavía las colecciones:
+No existen las colecciones:
 
 ```text
 progress
+dashboard
 history
 ```
 
@@ -162,7 +179,10 @@ El historial se obtiene actualmente a partir de las propias materias.
 Las evaluaciones se mantienen en una colección plana bajo el usuario e incluyen
 `subjectId`. La aplicación observa esa colección una vez y filtra localmente por
 materia, mes y día. Esto evita consultas por cada día del calendario y no requiere
-índices compuestos en v0.4.
+índices compuestos en v0.5.
+
+El dashboard se calcula dinámicamente. No existe una colección `dashboard` ni una
+cache persistida de `progress`.
 
 Las reglas académicas son listas pequeñas embebidas en `Subject`; no existe una
 colección `academicRules`. Los documentos se guardan con `schemaVersion: 2` y el
@@ -266,14 +286,14 @@ flutter analyze
 flutter test
 ```
 
-Estado de la v0.4:
+Estado de la v0.5:
 
 ```text
 flutter analyze
 No issues found
 
 flutter test
-66 tests aprobados
+77 tests aprobados
 ```
 
 ## Roadmap
@@ -297,9 +317,10 @@ Motor de promoción y regularidad
 
 v0.5
 Dashboard académico completo
+✅ Completada
 
-v0.6+
-Notificaciones y mejoras adicionales
+v0.6
+Notificaciones y recordatorios
 ```
 
 ## Plataformas objetivo
