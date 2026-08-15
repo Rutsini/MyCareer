@@ -7,6 +7,9 @@ class CalendarScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const ContentPage(
         title: 'Calendario',
-        child: EmptyStateCard(icon: Icons.calendar_month_outlined, title: 'Próximamente', message: 'Tus parciales y entregas aparecerán acá.'),
+        child: EmptyStateCard(
+            icon: Icons.calendar_month_outlined,
+            title: 'Próximamente',
+            message: 'Tus parciales y entregas aparecerán acá.'),
       );
 }

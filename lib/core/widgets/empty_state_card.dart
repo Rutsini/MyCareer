@@ -19,7 +19,8 @@ class EmptyStateCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 36, color: Theme.of(context).colorScheme.primary),
+              Icon(icon,
+                  size: 36, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 16),
               Text(title, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),

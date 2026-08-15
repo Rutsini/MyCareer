@@ -1,5 +1,1 @@
-{
-  "firestore": {
-    "rules": "firestore.rules"
-  }
-}
+{"firestore":{"rules":"firestore.rules"},"flutter":{"platforms":{"android":{"default":{"projectId":"mycareer-f3f24","appId":"1:223549102544:android:1de7acd266e8ce747a41d5","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"mycareer-f3f24","configurations":{"android":"1:223549102544:android:1de7acd266e8ce747a41d5","web":"1:223549102544:web:dea3fe6de8959f1d7a41d5"}}}}}}
