@@ -1,4 +1,6 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
+import 'academic_rule.dart';
+
 enum TrackingMode { tracked, historical }
 
 enum SubjectType { mandatory, elective }
@@ -40,6 +42,8 @@ class Subject {
       this.startDate,
       this.endDate,
       this.notes,
+      this.promotionRules = const [],
+      this.regularityRules = const [],
       required this.createdAt,
       required this.updatedAt});
   final String id;
@@ -65,6 +69,8 @@ class Subject {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? notes;
+  final List<AcademicRule> promotionRules;
+  final List<AcademicRule> regularityRules;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -88,9 +94,8 @@ class Subject {
     if (finalGrade != null &&
         (finalGrade! < gradeMin || finalGrade! > gradeMax))
       return 'La nota final debe estar dentro de la escala.';
-    if (trackingMode == TrackingMode.tracked &&
-        currentCondition != AcademicCondition.noData)
-      return 'La condición inicial debe ser sin datos.';
+    if (trackingMode == TrackingMode.tracked && currentCondition == null)
+      return 'La materia actual requiere una condición académica.';
     if (trackingMode == TrackingMode.historical) {
       if (currentCondition != null)
         return 'Una materia histórica no tiene condición actual.';
@@ -101,4 +106,44 @@ class Subject {
     }
     return null;
   }
+
+  Subject copyWith({
+    String? id,
+    AcademicCondition? currentCondition,
+    List<AcademicRule>? promotionRules,
+    List<AcademicRule>? regularityRules,
+    RecoveryPolicy? recoveryPolicy,
+    CourseStatus? courseStatus,
+    DateTime? updatedAt,
+  }) =>
+      Subject(
+          id: id ?? this.id,
+          academicYearId: academicYearId,
+          academicYear: academicYear,
+          trackingMode: trackingMode,
+          name: name,
+          shortName: shortName,
+          code: code,
+          commission: commission,
+          subjectType: subjectType,
+          electivePoints: electivePoints,
+          duration: duration,
+          semester: semester,
+          courseStatus: courseStatus ?? this.courseStatus,
+          currentCondition: trackingMode == TrackingMode.tracked
+              ? currentCondition ?? this.currentCondition
+              : null,
+          finalOutcome: finalOutcome,
+          finalGrade: finalGrade,
+          approvedAt: approvedAt,
+          gradeMin: gradeMin,
+          gradeMax: gradeMax,
+          recoveryPolicy: recoveryPolicy ?? this.recoveryPolicy,
+          startDate: startDate,
+          endDate: endDate,
+          notes: notes,
+          promotionRules: promotionRules ?? this.promotionRules,
+          regularityRules: regularityRules ?? this.regularityRules,
+          createdAt: createdAt,
+          updatedAt: updatedAt ?? this.updatedAt);
 }

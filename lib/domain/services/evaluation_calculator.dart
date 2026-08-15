@@ -1,54 +1,21 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
 import '../entities/evaluation.dart';
 import '../entities/subject.dart';
+import 'evaluation_resolver.dart';
 
 abstract final class EvaluationCalculator {
   static double? currentAverage(
     Subject subject,
     Iterable<Evaluation> evaluations,
   ) {
-    final valid = evaluations
-        .where((e) => e.subjectId == subject.id)
-        .where((e) => e.countsTowardAverage)
-        .where((e) => e.grade != null)
-        .where((e) => e.status != EvaluationStatus.absent)
-        .toList();
-    final byId = {for (final e in valid) e.id: e};
-    final recoveries = <String, Evaluation>{};
-    for (final evaluation in valid.where((e) => e.isRecovery)) {
-      final originalId = evaluation.recoveryOfEvaluationId;
-      if (originalId == null) continue;
-      final previous = recoveries[originalId];
-      if (previous == null || evaluation.date.isAfter(previous.date)) {
-        recoveries[originalId] = evaluation;
-      }
-    }
-
     final entries = <({double grade, double weight})>[];
-    for (final evaluation in valid.where((e) => !e.isRecovery)) {
-      final recovery = recoveries[evaluation.id];
-      var selected = evaluation;
-      if (recovery != null) {
-        switch (subject.recoveryPolicy) {
-          case RecoveryPolicy.replaceGrade:
-            selected = recovery;
-          case RecoveryPolicy.highestGrade:
-            if (_normalized(recovery, subject) >
-                _normalized(evaluation, subject)) {
-              selected = recovery;
-            }
-          case RecoveryPolicy.approvalOnly:
-            break;
-        }
-      }
+    for (final logical in EvaluationResolver.resolve(subject, evaluations)) {
+      final selected = logical.gradeSource;
+      if (!logical.original.countsTowardAverage ||
+          selected.grade == null ||
+          selected.status == EvaluationStatus.absent) continue;
       entries.add(
-          (grade: _normalized(selected, subject), weight: selected.weight));
-    }
-    // A recovery whose original is unavailable remains useful without double count.
-    for (final recovery in valid.where((e) => e.isRecovery)) {
-      if (!byId.containsKey(recovery.recoveryOfEvaluationId)) {
-        entries.add(
-            (grade: _normalized(recovery, subject), weight: recovery.weight));
-      }
+          (grade: logical.normalizedGrade(subject), weight: selected.weight));
     }
     if (entries.isEmpty) return null;
     final totalWeight = entries.fold<double>(0, (sum, e) => sum + e.weight);
@@ -70,9 +37,4 @@ abstract final class EvaluationCalculator {
       ..sort((a, b) => a.date.compareTo(b.date));
     return upcoming.firstOrNull;
   }
-
-  static double _normalized(Evaluation evaluation, Subject subject) =>
-      subject.gradeMin +
-      (evaluation.grade! / evaluation.maxGrade) *
-          (subject.gradeMax - subject.gradeMin);
 }

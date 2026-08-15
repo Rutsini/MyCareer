@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/subject.dart';
 import 'firestore_mapper_utils.dart';
+import 'academic_rule_mapper.dart';
 
 T _enumValue<T extends Enum>(List<T> values, Object? value, T fallback) =>
     values.where((item) => item.name == value).firstOrNull ?? fallback;
@@ -13,12 +14,17 @@ abstract final class SubjectMapper {
         value is Timestamp ? value.toDate() : null;
     T? nullableEnum<T extends Enum>(List<T> values, Object? value) =>
         value == null ? null : values.where((e) => e.name == value).firstOrNull;
+    final tracked = _enumValue(
+        TrackingMode.values, d['trackingMode'], TrackingMode.tracked);
+    List rules(String key) => (d[key] as List? ?? const [])
+        .map(AcademicRuleMapper.tryFromMap)
+        .whereType()
+        .toList();
     return Subject(
         id: doc.id,
         academicYearId: d['academicYearId'] as String? ?? '',
         academicYear: (d['academicYear'] as num?)?.toInt() ?? 0,
-        trackingMode: _enumValue(
-            TrackingMode.values, d['trackingMode'], TrackingMode.tracked),
+        trackingMode: tracked,
         name: d['name'] as String? ?? '',
         shortName: d['shortName'] as String?,
         code: d['code'] as String?,
@@ -31,8 +37,10 @@ abstract final class SubjectMapper {
         semester: nullableEnum(Semester.values, d['semester']),
         courseStatus: _enumValue(
             CourseStatus.values, d['courseStatus'], CourseStatus.active),
-        currentCondition:
-            nullableEnum(AcademicCondition.values, d['currentCondition']),
+        currentCondition: tracked == TrackingMode.tracked
+            ? nullableEnum(AcademicCondition.values, d['currentCondition']) ??
+                AcademicCondition.noData
+            : null,
         finalOutcome: nullableEnum(FinalOutcome.values, d['finalOutcome']),
         finalGrade: (d['finalGrade'] as num?)?.toDouble(),
         approvedAt: nullableDate(d['approvedAt']),
@@ -43,6 +51,8 @@ abstract final class SubjectMapper {
         startDate: nullableDate(d['startDate']),
         endDate: nullableDate(d['endDate']),
         notes: d['notes'] as String?,
+        promotionRules: rules('promotionRules').cast(),
+        regularityRules: rules('regularityRules').cast(),
         createdAt: dateFromFirestore(d['createdAt']),
         updatedAt: dateFromFirestore(d['updatedAt']));
   }
@@ -75,9 +85,13 @@ abstract final class SubjectMapper {
             s.startDate == null ? null : Timestamp.fromDate(s.startDate!),
         'endDate': s.endDate == null ? null : Timestamp.fromDate(s.endDate!),
         'notes': _emptyToNull(s.notes),
+        'promotionRules':
+            s.promotionRules.map(AcademicRuleMapper.toMap).toList(),
+        'regularityRules':
+            s.regularityRules.map(AcademicRuleMapper.toMap).toList(),
         if (creating) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'schemaVersion': 1,
+        'schemaVersion': 2,
       };
 
   static String? _emptyToNull(String? value) =>

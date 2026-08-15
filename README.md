@@ -1,4 +1,4 @@
-# MyCareer — v0.3
+# MyCareer — v0.4
 
 Aplicación académica personal desarrollada con Flutter para Android y Web.
 
@@ -6,9 +6,9 @@ MyCareer permite registrar y organizar la trayectoria académica de un estudiant
 
 ## Estado actual
 
-Versión: **0.3.0+3**
+Versión: **0.4.0+4**
 
-La v0.3 incluye:
+La v0.4 incluye todo lo anterior y además:
 
 - Autenticación mediante correo electrónico y contraseña.
 - Integración con Firebase Authentication.
@@ -31,11 +31,16 @@ La v0.3 incluye:
 - Próxima evaluación calculada dinámicamente en las tarjetas de materias.
 - Calendario académico mensual con actividades por día y alta contextual.
 - Eliminación en cascada de las evaluaciones al eliminar una materia.
+- Reglas configurables de promoción y regularidad embebidas en cada materia.
+- Seis tipos de condición: promedio mínimo, nota mínima por tipo, porcentaje y cantidad aprobada, todas aprobadas y evaluación obligatoria.
+- Motor académico puro con estados cumplida, pendiente y no cumplida.
+- Condición automática: sin datos, promocionando, regular, en riesgo o no regularizó.
+- Resolución unificada de evaluaciones y recuperatorios, sin doble conteo.
+- Requisitos faltantes y nota exacta requerida cuando el cálculo es determinístico.
+- Pestaña Condiciones para crear, editar, habilitar, reordenar y eliminar reglas.
 
 Todavía no se incluyen:
 
-- Motor de promoción y regularidad.
-- Reglas académicas dinámicas y cálculos predictivos.
 - Asistencia y dashboard académico completo.
 - Notificaciones.
 
@@ -117,6 +122,8 @@ users/{uid}
 users/{uid}/academicYears/{year}
 
 users/{uid}/subjects/{subjectId}
+  promotionRules[]
+  regularityRules[]
 
 users/{uid}/evaluations/{evaluationId}
 ```
@@ -155,7 +162,12 @@ El historial se obtiene actualmente a partir de las propias materias.
 Las evaluaciones se mantienen en una colección plana bajo el usuario e incluyen
 `subjectId`. La aplicación observa esa colección una vez y filtra localmente por
 materia, mes y día. Esto evita consultas por cada día del calendario y no requiere
-índices compuestos en v0.3.
+índices compuestos en v0.4.
+
+Las reglas académicas son listas pequeñas embebidas en `Subject`; no existe una
+colección `academicRules`. Los documentos se guardan con `schemaVersion: 2` y el
+mapper mantiene compatibilidad con documentos v1 o sin versión, interpretando las
+listas ausentes como vacías.
 
 `Subject.recoveryPolicy` se persiste en cada materia. Los documentos anteriores a
 v0.3 que no contienen el campo se leen con el valor técnico compatible
@@ -254,14 +266,14 @@ flutter analyze
 flutter test
 ```
 
-Estado de la v0.3:
+Estado de la v0.4:
 
 ```text
 flutter analyze
 No issues found
 
 flutter test
-42 tests aprobados
+66 tests aprobados
 ```
 
 ## Roadmap
@@ -281,6 +293,7 @@ Evaluaciones + fechas + notas + recuperatorios + calendario
 
 v0.4
 Motor de promoción y regularidad
+✅ Completada
 
 v0.5
 Dashboard académico completo

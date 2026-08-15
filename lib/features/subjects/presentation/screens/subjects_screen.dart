@@ -11,6 +11,7 @@ import '../../../../domain/services/evaluation_calculator.dart';
 import '../../../evaluations/application/evaluation_controller.dart';
 import '../../application/academic_year_controller.dart';
 import '../../application/subject_controller.dart';
+import '../../application/academic_controller.dart';
 
 enum _Filter { all, annual, first, second, elective }
 
@@ -306,6 +307,9 @@ class _SubjectCard extends ConsumerWidget {
         ? null
         : EvaluationCalculator.nextEvaluation(evaluations,
             subjectId: subject.id);
+    final academic = historical
+        ? null
+        : ref.watch(subjectAcademicResultProvider(subject.id)).valueOrNull;
     return Card(
         child: InkWell(
             onTap: () => context.go(AppRoutes.subject(subject.id)),
@@ -350,7 +354,7 @@ class _SubjectCard extends ConsumerWidget {
                         const SizedBox(width: 6),
                         Text(historical
                             ? _outcome(subject.finalOutcome)
-                            : 'Sin datos')
+                            : academic?.summary ?? 'Sin datos')
                       ]),
                       const Spacer(),
                       Text(historical ? 'Nota final' : 'Promedio actual',

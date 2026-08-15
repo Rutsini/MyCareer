@@ -6,6 +6,7 @@ import '../../../data/repositories/evaluation_repository.dart';
 import '../../../domain/entities/evaluation.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../profile/application/profile_controller.dart';
+import '../../subjects/application/academic_controller.dart';
 
 final evaluationServiceProvider = Provider((ref) =>
     EvaluationService(ref.watch(firestoreProvider), requireUserId(ref)));
@@ -21,12 +22,15 @@ final subjectEvaluationsProvider =
             .where((evaluation) => evaluation.subjectId == subjectId)
             .toList()));
 final evaluationControllerProvider =
-    StateNotifierProvider<EvaluationController, AsyncValue<void>>(
-        (ref) => EvaluationController(ref.watch(evaluationRepositoryProvider)));
+    StateNotifierProvider<EvaluationController, AsyncValue<void>>((ref) =>
+        EvaluationController(ref.watch(evaluationRepositoryProvider),
+            (id) => ref.read(academicSynchronizerProvider).synchronize(id)));
 
 class EvaluationController extends StateNotifier<AsyncValue<void>> {
-  EvaluationController(this._repository) : super(const AsyncData(null));
+  EvaluationController(this._repository, [this._synchronize])
+      : super(const AsyncData(null));
   final EvaluationRepository _repository;
+  final Future<void> Function(String)? _synchronize;
 
   Future<String?> save(Evaluation evaluation) async {
     state = const AsyncLoading();
@@ -39,6 +43,7 @@ class EvaluationController extends StateNotifier<AsyncValue<void>> {
       if (evaluation.id.isNotEmpty) {
         await _repository.updateEvaluation(evaluation);
       }
+      await _synchronize?.call(evaluation.subjectId);
       state = const AsyncData(null);
       return id;
     } on AppException catch (error, stackTrace) {
@@ -54,7 +59,11 @@ class EvaluationController extends StateNotifier<AsyncValue<void>> {
   Future<bool> delete(String id) async {
     state = const AsyncLoading();
     try {
+      final evaluation = _synchronize == null
+          ? null
+          : await _repository.watchEvaluation(id).first;
       await _repository.deleteEvaluation(id);
+      if (evaluation != null) await _synchronize?.call(evaluation.subjectId);
       state = const AsyncData(null);
       return true;
     } catch (_, stackTrace) {

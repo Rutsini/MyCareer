@@ -7,8 +7,11 @@ import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/evaluation.dart';
 import '../../../../domain/entities/subject.dart';
 import '../../../../domain/services/evaluation_calculator.dart';
+import '../../../../domain/services/academic_engine.dart';
 import '../../../evaluations/application/evaluation_controller.dart';
 import '../../application/subject_controller.dart';
+import '../../application/academic_controller.dart';
+import '../widgets/conditions_tab.dart';
 
 enum _Filter { all, pending, completed, partial, practicalWork, recovery }
 
@@ -66,18 +69,16 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                                     'No pudimos cargar tus evaluaciones.'),
                                 data: (items) => _summaryCard(subject, items)),
                             _evaluationList(subject),
-                            const Card(
-                                child: Center(
-                                    child: Padding(
-                                        padding: EdgeInsets.all(24),
-                                        child: Text(
-                                            'Las condiciones de promoción y regularidad se incorporarán en la v0.4.')))),
+                            ConditionsTab(subject: subject),
                           ]))
                     ])));
           });
 
   Widget _summaryCard(Subject subject, List<Evaluation> items) {
     final average = EvaluationCalculator.currentAverage(subject, items);
+    final academic = subject.trackingMode == TrackingMode.tracked
+        ? const AcademicEngine().evaluate(subject: subject, evaluations: items)
+        : null;
     final next =
         EvaluationCalculator.nextEvaluation(items, subjectId: subject.id);
     return Card(
@@ -88,7 +89,11 @@ class _State extends ConsumerState<SubjectDetailScreen> {
               _Item(
                   'Condición actual',
                   subject.trackingMode == TrackingMode.tracked
-                      ? 'Sin datos'
+                      ? ref
+                              .watch(subjectAcademicResultProvider(subject.id))
+                              .valueOrNull
+                              ?.summary ??
+                          'Sin datos'
                       : subject.finalOutcome?.name ?? '—'),
               _Item(
                   subject.trackingMode == TrackingMode.tracked
@@ -103,7 +108,13 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                     'Próxima evaluación',
                     next == null
                         ? '—'
-                        : '${next.date.day}/${next.date.month} · ${next.name}')
+                        : '${next.date.day}/${next.date.month} · ${next.name}'),
+              if (academic != null && academic.promotionConfigured)
+                _Item('Promoción',
+                    '${academic.promotionResults.where((r) => r.status == RuleResultStatus.met).length} / ${academic.promotionResults.length} cumplidos'),
+              if (academic != null && academic.regularityConfigured)
+                _Item('Regularidad',
+                    '${academic.regularityResults.where((r) => r.status == RuleResultStatus.met).length} / ${academic.regularityResults.length} cumplidos')
             ])));
   }
 
