@@ -1,7 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart' hide Evaluation;
 import 'package:my_career/data/repositories/subject_repository.dart';
 import 'package:my_career/domain/entities/subject.dart';
 import 'package:my_career/features/subjects/application/subject_controller.dart';
+import 'package:my_career/data/repositories/evaluation_repository.dart';
+import 'package:my_career/domain/entities/evaluation.dart';
 
 class FakeSubjectRepository implements SubjectRepository {
   Subject? created;
@@ -19,6 +21,25 @@ class FakeSubjectRepository implements SubjectRepository {
   Stream<Subject?> watchSubject(String id) => const Stream.empty();
   @override
   Stream<List<Subject>> watchSubjects() => const Stream.empty();
+}
+
+class FakeEvaluationRepository implements EvaluationRepository {
+  String? deletedSubject;
+  @override
+  Future<void> deleteEvaluationsBySubject(String id) async {
+    deletedSubject = id;
+  }
+
+  @override
+  Future<String> createEvaluation(Evaluation e) => throw UnimplementedError();
+  @override
+  Future<void> deleteEvaluation(String id) => throw UnimplementedError();
+  @override
+  Future<void> updateEvaluation(Evaluation e) => throw UnimplementedError();
+  @override
+  Stream<Evaluation?> watchEvaluation(String id) => const Stream.empty();
+  @override
+  Stream<List<Evaluation>> watchEvaluations() => const Stream.empty();
 }
 
 void main() {
@@ -41,5 +62,12 @@ void main() {
         updatedAt: DateTime(2026));
     expect(await controller.save(value), 'new-id');
     expect(repository.created?.name, 'Álgebra');
+  });
+  test('al eliminar materia procesa solo sus evaluaciones asociadas', () async {
+    final subjects = FakeSubjectRepository();
+    final evaluations = FakeEvaluationRepository();
+    expect(await SubjectController(subjects, evaluations).delete('subject-a'),
+        isTrue);
+    expect(evaluations.deletedSubject, 'subject-a');
   });
 }

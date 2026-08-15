@@ -7,6 +7,8 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/academic_year.dart';
 import '../../../../domain/entities/subject.dart';
+import '../../../../domain/services/evaluation_calculator.dart';
+import '../../../evaluations/application/evaluation_controller.dart';
 import '../../application/academic_year_controller.dart';
 import '../../application/subject_controller.dart';
 
@@ -254,8 +256,8 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
             context: context,
             builder: (dialogContext) => AlertDialog(
                     title: Text('¿Eliminar "${subject.name}"?'),
-                    content: const Text(
-                        'Esta acción eliminará la materia de tu cuenta.'),
+                    content: Text(
+                        'También se eliminarán sus evaluaciones asociadas.\n\nEsta acción no se puede deshacer.'),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(dialogContext, false),
@@ -287,13 +289,23 @@ class _NoYears extends StatelessWidget {
           ])));
 }
 
-class _SubjectCard extends StatelessWidget {
+class _SubjectCard extends ConsumerWidget {
   const _SubjectCard({required this.subject, required this.onDelete});
   final Subject subject;
   final VoidCallback onDelete;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final historical = subject.trackingMode == TrackingMode.historical;
+    final evaluations =
+        ref.watch(subjectEvaluationsProvider(subject.id)).valueOrNull ??
+            const [];
+    final average = historical
+        ? null
+        : EvaluationCalculator.currentAverage(subject, evaluations);
+    final next = historical
+        ? null
+        : EvaluationCalculator.nextEvaluation(evaluations,
+            subjectId: subject.id);
     return Card(
         child: InkWell(
             onTap: () => context.go(AppRoutes.subject(subject.id)),
@@ -346,9 +358,15 @@ class _SubjectCard extends StatelessWidget {
                       Text(
                           historical
                               ? (subject.finalGrade?.toString() ?? '—')
-                              : '—',
+                              : (average
+                                      ?.toStringAsFixed(2)
+                                      .replaceAll('.', ',') ??
+                                  '—'),
                           style: Theme.of(context).textTheme.titleLarge),
-                      if (!historical) const Text('Próxima evaluación  —')
+                      if (!historical)
+                        Text(next == null
+                            ? 'Próxima evaluación  —'
+                            : 'Próxima evaluación  ${next.date.day}/${next.date.month} · ${next.name}')
                     ]))));
   }
 

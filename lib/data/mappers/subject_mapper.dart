@@ -38,6 +38,8 @@ abstract final class SubjectMapper {
         approvedAt: nullableDate(d['approvedAt']),
         gradeMin: numberToDouble(scale['min']),
         gradeMax: numberToDouble(scale['max'], 10),
+        recoveryPolicy: _enumValue(RecoveryPolicy.values, d['recoveryPolicy'],
+            RecoveryPolicy.highestGrade),
         startDate: nullableDate(d['startDate']),
         endDate: nullableDate(d['endDate']),
         notes: d['notes'] as String?,
@@ -60,6 +62,7 @@ abstract final class SubjectMapper {
         'semester':
             s.duration == SubjectDuration.semester ? s.semester?.name : null,
         'gradeScale': {'min': s.gradeMin, 'max': s.gradeMax},
+        'recoveryPolicy': s.recoveryPolicy.name,
         'courseStatus': s.courseStatus.name,
         'currentCondition': s.trackingMode == TrackingMode.tracked
             ? s.currentCondition?.name

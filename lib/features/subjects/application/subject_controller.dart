@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../data/firebase/subject_service.dart';
 import '../../../data/repositories/subject_repository.dart';
+import '../../../data/repositories/evaluation_repository.dart';
 import '../../../domain/entities/subject.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../profile/application/profile_controller.dart';
+import '../../evaluations/application/evaluation_controller.dart';
 
 final subjectServiceProvider = Provider(
     (ref) => SubjectService(ref.watch(firestoreProvider), requireUserId(ref)));
@@ -15,12 +17,15 @@ final subjectsProvider = StreamProvider<List<Subject>>(
 final subjectProvider = StreamProvider.family<Subject?, String>(
     (ref, id) => ref.watch(subjectRepositoryProvider).watchSubject(id));
 final subjectControllerProvider =
-    StateNotifierProvider<SubjectController, AsyncValue<void>>(
-        (ref) => SubjectController(ref.watch(subjectRepositoryProvider)));
+    StateNotifierProvider<SubjectController, AsyncValue<void>>((ref) =>
+        SubjectController(ref.watch(subjectRepositoryProvider),
+            ref.watch(evaluationRepositoryProvider)));
 
 class SubjectController extends StateNotifier<AsyncValue<void>> {
-  SubjectController(this._repository) : super(const AsyncData(null));
+  SubjectController(this._repository, [this._evaluationRepository])
+      : super(const AsyncData(null));
   final SubjectRepository _repository;
+  final EvaluationRepository? _evaluationRepository;
   Future<String?> save(Subject subject) async {
     state = const AsyncLoading();
     try {
@@ -45,6 +50,7 @@ class SubjectController extends StateNotifier<AsyncValue<void>> {
   Future<bool> delete(String id) async {
     state = const AsyncLoading();
     try {
+      await _evaluationRepository?.deleteEvaluationsBySubject(id);
       await _repository.deleteSubject(id);
       state = const AsyncData(null);
       return true;

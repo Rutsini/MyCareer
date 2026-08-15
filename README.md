@@ -1,4 +1,4 @@
-# MyCareer — v0.2
+# MyCareer — v0.3
 
 Aplicación académica personal desarrollada con Flutter para Android y Web.
 
@@ -6,9 +6,9 @@ MyCareer permite registrar y organizar la trayectoria académica de un estudiant
 
 ## Estado actual
 
-Versión: **0.2.0**
+Versión: **0.3.0+3**
 
-La v0.2 incluye:
+La v0.3 incluye:
 
 - Autenticación mediante correo electrónico y contraseña.
 - Integración con Firebase Authentication.
@@ -24,14 +24,19 @@ La v0.2 incluye:
 - Promedio general de materias aprobadas/promocionadas.
 - Seguimiento de puntos electivos obtenidos y en curso.
 - Interfaz responsive para Android y Web.
+- Evaluaciones asociadas a materias actuales, con CRUD, fechas y observaciones.
+- Tipos y estados de evaluación, obligatoriedad y participación en el promedio.
+- Notas, escalas, pesos y promedio actual ponderado por materia.
+- Recuperatorios vinculados y políticas `replaceGrade`, `highestGrade` y `approvalOnly`.
+- Próxima evaluación calculada dinámicamente en las tarjetas de materias.
+- Calendario académico mensual con actividades por día y alta contextual.
+- Eliminación en cascada de las evaluaciones al eliminar una materia.
 
 Todavía no se incluyen:
 
-- Evaluaciones y parciales.
-- Trabajos prácticos y entregables.
-- Recuperatorios.
-- Calendario académico real.
 - Motor de promoción y regularidad.
+- Reglas académicas dinámicas y cálculos predictivos.
+- Asistencia y dashboard académico completo.
 - Notificaciones.
 
 Estas funcionalidades se incorporarán en versiones posteriores.
@@ -89,6 +94,7 @@ lib/
 │   ├── auth/
 │   ├── dashboard/
 │   ├── subjects/
+│   ├── evaluations/
 │   ├── calendar/
 │   ├── progress/
 │   └── profile/
@@ -111,6 +117,8 @@ users/{uid}
 users/{uid}/academicYears/{year}
 
 users/{uid}/subjects/{subjectId}
+
+users/{uid}/evaluations/{evaluationId}
 ```
 
 Ejemplo:
@@ -126,21 +134,32 @@ users
     │   ├── 2025
     │   └── 2026
     │
-    └── subjects
-        ├── {subjectId}
-        ├── {subjectId}
+    ├── subjects
+    │   ├── {subjectId}
+    │   └── ...
+    │
+    └── evaluations
+        ├── {evaluationId}
         └── ...
 ```
 
 No existen todavía las colecciones:
 
 ```text
-evaluations
 progress
 history
 ```
 
 El historial se obtiene actualmente a partir de las propias materias.
+
+Las evaluaciones se mantienen en una colección plana bajo el usuario e incluyen
+`subjectId`. La aplicación observa esa colección una vez y filtra localmente por
+materia, mes y día. Esto evita consultas por cada día del calendario y no requiere
+índices compuestos en v0.3.
+
+`Subject.recoveryPolicy` se persiste en cada materia. Los documentos anteriores a
+v0.3 que no contienen el campo se leen con el valor técnico compatible
+`highestGrade`.
 
 ## Seguridad
 
@@ -235,14 +254,14 @@ flutter analyze
 flutter test
 ```
 
-Estado de la v0.2:
+Estado de la v0.3:
 
 ```text
 flutter analyze
 No issues found
 
 flutter test
-19 tests aprobados
+42 tests aprobados
 ```
 
 ## Roadmap
@@ -258,6 +277,7 @@ Perfil académico + años + materias + historial inicial
 
 v0.3
 Evaluaciones + fechas + notas + recuperatorios + calendario
+✅ Completada
 
 v0.4
 Motor de promoción y regularidad
@@ -275,3 +295,9 @@ Notificaciones y mejoras adicionales
 - Web
 
 Actualmente no se desarrollan versiones específicas para Windows, macOS, Linux o iOS.
+
+## Mantenimiento de versiones
+
+Antes de cerrar cada versión se revisan la versión, funcionalidades, estructura de
+Firestore, arquitectura, rutas, dependencias, configuración, plataformas, tests y
+roadmap de este README. Solo se documentan funciones efectivamente implementadas.

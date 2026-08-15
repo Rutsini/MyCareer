@@ -14,6 +14,7 @@ import '../../features/subjects/presentation/screens/subject_detail_screen.dart'
 import '../../features/subjects/presentation/screens/subject_form_screen.dart';
 import '../../features/subjects/presentation/screens/subject_type_screen.dart';
 import '../../domain/entities/subject.dart';
+import '../../features/evaluations/presentation/screens/evaluation_form_screen.dart';
 import 'app_routes.dart';
 import 'router_refresh_notifier.dart';
 
@@ -41,6 +42,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.register,
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.newEvaluation,
+        builder: (context, state) => EvaluationFormScreen(
+          subjectId: state.uri.queryParameters['subjectId'],
+          date: DateTime.tryParse(state.uri.queryParameters['date'] ?? ''),
+        ),
+      ),
+      GoRoute(
+        path: '/evaluations/:evaluationId/edit',
+        builder: (context, state) => EvaluationFormScreen(
+          evaluationId: state.pathParameters['evaluationId'],
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

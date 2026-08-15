@@ -11,6 +11,8 @@ abstract final class AppRoutes {
   static const calendar = '/calendar';
   static const progress = '/progress';
   static const profile = '/profile';
+  static const newEvaluation = '/evaluations/new';
+  static String editEvaluation(String id) => '/evaluations/$id/edit';
 
   static const authenticated = <String>{
     dashboard,

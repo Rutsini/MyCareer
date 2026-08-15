@@ -13,6 +13,8 @@ enum AcademicCondition { noData, promoting, regular, atRisk, failed }
 
 enum FinalOutcome { approved, promoted, regularized, failed, abandoned }
 
+enum RecoveryPolicy { replaceGrade, highestGrade, approvalOnly }
+
 class Subject {
   const Subject(
       {required this.id,
@@ -34,6 +36,7 @@ class Subject {
       this.approvedAt,
       required this.gradeMin,
       required this.gradeMax,
+      this.recoveryPolicy = RecoveryPolicy.highestGrade,
       this.startDate,
       this.endDate,
       this.notes,
@@ -58,6 +61,7 @@ class Subject {
   final DateTime? approvedAt;
   final double gradeMin;
   final double gradeMax;
+  final RecoveryPolicy recoveryPolicy;
   final DateTime? startDate;
   final DateTime? endDate;
   final String? notes;

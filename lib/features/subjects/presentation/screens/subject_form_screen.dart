@@ -35,6 +35,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
   SubjectDuration _duration = SubjectDuration.annual;
   Semester? _semester;
   FinalOutcome _outcome = FinalOutcome.approved;
+  RecoveryPolicy _recoveryPolicy = RecoveryPolicy.highestGrade;
   DateTime? _approvedAt;
   int _step = 0;
   bool _initialized = false;
@@ -77,6 +78,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
     _duration = s.duration;
     _semester = s.semester;
     _outcome = s.finalOutcome ?? FinalOutcome.approved;
+    _recoveryPolicy = s.recoveryPolicy;
     _approvedAt = s.approvedAt;
   }
 
@@ -125,6 +127,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         approvedAt: historical ? _approvedAt : null,
         gradeMin: _number(_min.text) ?? 0,
         gradeMax: _number(_max.text) ?? 10,
+        recoveryPolicy: _recoveryPolicy,
         notes: _optional(_notes.text),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now());
@@ -483,7 +486,28 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
                       keyboardType: TextInputType.number,
                       decoration:
                           const InputDecoration(labelText: 'Nota máxima')))
-            ])
+            ]),
+            if (_mode == TrackingMode.tracked) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<RecoveryPolicy>(
+                  value: _recoveryPolicy,
+                  decoration: const InputDecoration(
+                      labelText: 'Política de recuperatorios'),
+                  items: RecoveryPolicy.values
+                      .map((policy) => DropdownMenuItem(
+                          value: policy,
+                          child: Text(switch (policy) {
+                            RecoveryPolicy.replaceGrade =>
+                              'El recuperatorio reemplaza la nota original',
+                            RecoveryPolicy.highestGrade =>
+                              'Se toma la mejor nota',
+                            RecoveryPolicy.approvalOnly =>
+                              'El recuperatorio solo recupera la aprobación',
+                          })))
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => _recoveryPolicy = value!)),
+            ]
           ]);
   Widget _review(List<AcademicYear> years) {
     final year = years.where((y) => y.id == _yearId).firstOrNull;
