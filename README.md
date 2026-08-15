@@ -1,25 +1,187 @@
-# App Académica — v0.1
+# MyCareer — v0.2
 
-Base responsive para gestionar una vida académica desde Android y Web. Esta versión incluye arquitectura, autenticación por correo y contraseña, navegación y pantallas iniciales. No incluye todavía materias, evaluaciones, calendario real ni progreso académico.
+Aplicación académica personal desarrollada con Flutter para Android y Web.
 
-## Requisitos
+MyCareer permite registrar y organizar la trayectoria académica de un estudiante, incluyendo materias actuales, materias históricas, años académicos, perfil académico y métricas iniciales de progreso.
 
-- Flutter (canal estable)
-- Firebase CLI
-- FlutterFire CLI
+## Estado actual
 
-## Instalación
+Versión: **0.2.0**
 
-Si el repositorio todavía no contiene los runners `android/` y `web/`, generarlos primero (el código existente en `lib/` no se reemplaza):
+La v0.2 incluye:
+
+- Autenticación mediante correo electrónico y contraseña.
+- Integración con Firebase Authentication.
+- Persistencia mediante Cloud Firestore.
+- Perfil académico configurable.
+- Gestión de años académicos.
+- Protección contra creación de años académicos duplicados.
+- Materias actuales.
+- Materias históricas.
+- Creación, edición y eliminación de materias.
+- Búsqueda y filtros de materias.
+- Historial académico inicial.
+- Promedio general de materias aprobadas/promocionadas.
+- Seguimiento de puntos electivos obtenidos y en curso.
+- Interfaz responsive para Android y Web.
+
+Todavía no se incluyen:
+
+- Evaluaciones y parciales.
+- Trabajos prácticos y entregables.
+- Recuperatorios.
+- Calendario académico real.
+- Motor de promoción y regularidad.
+- Notificaciones.
+
+Estas funcionalidades se incorporarán en versiones posteriores.
+
+## Tecnologías
+
+- Flutter
+- Dart
+- Firebase Core
+- Firebase Authentication
+- Cloud Firestore
+- Riverpod
+- go_router
+- Material 3
+
+## Arquitectura
+
+La dependencia conceptual utilizada es:
+
+```text
+Presentation
+↓
+Application / Controllers
+↓
+Repository
+↓
+Firebase Service
+↓
+Firebase
+```
+
+La estructura principal del proyecto es:
+
+```text
+lib/
+├── app/
+│   ├── router/
+│   └── theme/
+│
+├── core/
+│   ├── constants/
+│   ├── errors/
+│   ├── utils/
+│   └── widgets/
+│
+├── domain/
+│   └── entities/
+│
+├── data/
+│   ├── firebase/
+│   ├── repositories/
+│   └── mappers/
+│
+├── features/
+│   ├── auth/
+│   ├── dashboard/
+│   ├── subjects/
+│   ├── calendar/
+│   ├── progress/
+│   └── profile/
+│
+├── firebase_options.dart
+└── main.dart
+```
+
+Las entidades de dominio permanecen independientes de Firebase.
+
+La UI no accede directamente a Firestore.
+
+## Firestore
+
+La estructura utilizada actualmente es:
+
+```text
+users/{uid}
+
+users/{uid}/academicYears/{year}
+
+users/{uid}/subjects/{subjectId}
+```
+
+Ejemplo:
+
+```text
+users
+└── {uid}
+    ├── career
+    ├── settings
+    │
+    ├── academicYears
+    │   ├── 2024
+    │   ├── 2025
+    │   └── 2026
+    │
+    └── subjects
+        ├── {subjectId}
+        ├── {subjectId}
+        └── ...
+```
+
+No existen todavía las colecciones:
+
+```text
+evaluations
+progress
+history
+```
+
+El historial se obtiene actualmente a partir de las propias materias.
+
+## Seguridad
+
+Todos los datos académicos están almacenados debajo del usuario autenticado:
+
+```text
+users/{uid}
+```
+
+Las reglas de Firestore permiten acceder al árbol del usuario únicamente cuando:
+
+```text
+request.auth.uid == userId
+```
+
+Esto mantiene los datos de cada cuenta aislados.
+
+## Firebase
+
+El proyecto está configurado para:
+
+- Android
+- Web
+
+Firebase Authentication utiliza actualmente:
+
+```text
+Correo electrónico + contraseña
+```
+
+Cloud Firestore se utiliza como base de datos.
+
+## Configuración inicial
+
+Instalar las dependencias:
 
 ```bash
-flutter create --platforms=android,web .
 flutter pub get
 ```
 
-## Configurar Firebase
-
-No se incluyen credenciales ni un `firebase_options.dart` inventado. Ejecutar:
+Para configurar Firebase en un entorno nuevo:
 
 ```bash
 firebase login
@@ -27,21 +189,26 @@ dart pub global activate flutterfire_cli
 flutterfire configure
 ```
 
-Seleccionar **Android** y **Web**. FlutterFire generará `lib/firebase_options.dart`. Luego actualizar `lib/main.dart`:
+Seleccionar:
+
+```text
+Android
+Web
+```
+
+FlutterFire genera:
+
+```text
+lib/firebase_options.dart
+```
+
+La aplicación inicializa Firebase mediante:
 
 ```dart
-import 'firebase_options.dart';
-
 await Firebase.initializeApp(
   options: DefaultFirebaseOptions.currentPlatform,
 );
 ```
-
-En Firebase Console también se debe:
-
-1. Habilitar **Authentication > Sign-in method > Email/Password**.
-2. Crear la base de datos de Cloud Firestore.
-3. Publicar las reglas con `firebase deploy --only firestore:rules`.
 
 ## Ejecutar
 
@@ -51,29 +218,60 @@ Web:
 flutter run -d chrome
 ```
 
-Android (con emulador o dispositivo conectado):
+Android:
 
 ```bash
-flutter run
+flutter devices
+flutter run -d <device>
 ```
 
-## Verificar
+## Validación
+
+Antes de cerrar una versión se ejecuta:
 
 ```bash
+dart format lib test
 flutter analyze
 flutter test
 ```
 
-## Arquitectura
+Estado de la v0.2:
 
-La dependencia conceptual es `Presentation → Application → Repository → Service → Firebase`:
+```text
+flutter analyze
+No issues found
 
-- `lib/features/`: presentación y controladores organizados por funcionalidad.
-- `lib/domain/`: entidades independientes de Flutter y Firebase.
-- `lib/data/`: repositorios y servicios que encapsulan Firebase.
-- `lib/core/`: validaciones, errores y widgets compartidos.
-- `lib/app/`: router, tema y composición de la aplicación.
+flutter test
+19 tests aprobados
+```
 
-`AuthRepository` es una interfaz para permitir tests sin Firebase real. `AuthService` es la única clase que usa `FirebaseAuth` directamente. El repositorio crea `users/{uid}` después del alta; si Firestore falla, conserva la cuenta de Authentication y devuelve un mensaje que explica que el perfil quedó pendiente, evitando una eliminación automática potencialmente destructiva.
+## Roadmap
 
-El shell usa `StatefulShellRoute.indexedStack`: en móvil muestra `NavigationBar` y desde 720 px muestra `NavigationRail`, conservando el estado de cada rama.
+```text
+v0.1
+Base Flutter + Firebase + autenticación + navegación
+✅ Completada
+
+v0.2
+Perfil académico + años + materias + historial inicial
+✅ Completada
+
+v0.3
+Evaluaciones + fechas + notas + recuperatorios + calendario
+
+v0.4
+Motor de promoción y regularidad
+
+v0.5
+Dashboard académico completo
+
+v0.6+
+Notificaciones y mejoras adicionales
+```
+
+## Plataformas objetivo
+
+- Android
+- Web
+
+Actualmente no se desarrollan versiones específicas para Windows, macOS, Linux o iOS.
