@@ -1,0 +1,9 @@
+flutter_launcher_icons:
+  android: true
+  image_path: assets/branding/mycareer_logo.png
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/branding/mycareer_logo.png
+    background_color: "#F7F3EE"
+    theme_color: "#2C5360"

@@ -72,9 +72,23 @@ Estas funcionalidades se incorporarán en versiones posteriores.
 - flutter_local_notifications 22.3.0
 - timezone 0.11.1
 - flutter_timezone 5.1.0
+- flutter_launcher_icons 0.14.4 (desarrollo)
 
 El mínimo declarado continúa siendo Dart `>=3.4.0 <4.0.0`; el entorno validado
 usa Flutter 3.47.0 y Dart 3.13.0.
+
+## Branding e íconos
+
+El nombre visible de la aplicación es `MyCareer` en Android, el título del
+navegador y el manifiesto PWA Web. El logo oficial se conserva en
+`assets/branding/mycareer_logo.png`.
+
+Los launcher icons Android, el favicon y los iconos PWA Web se generan desde
+ese único asset mediante `flutter_launcher_icons.yaml`:
+
+```bash
+dart run flutter_launcher_icons
+```
 
 ## Arquitectura
 
