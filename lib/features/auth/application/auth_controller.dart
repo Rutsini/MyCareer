@@ -7,7 +7,8 @@ import '../../../data/firebase/auth_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../domain/entities/user_profile.dart';
 
-final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
+final firebaseAuthProvider =
+    Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 final firestoreProvider =
     Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 final authServiceProvider = Provider<AuthService>(

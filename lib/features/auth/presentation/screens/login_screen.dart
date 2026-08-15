@@ -68,22 +68,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               decoration: InputDecoration(
                 labelText: 'Contraseña',
                 suffixIcon: IconButton(
-                  tooltip: _obscurePassword ? 'Mostrar contraseña' : 'Ocultar contraseña',
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  tooltip: _obscurePassword
+                      ? 'Mostrar contraseña'
+                      : 'Ocultar contraseña',
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(_obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
                 ),
               ),
               validator: Validators.password,
             ),
             if (error != null) ...[
               const SizedBox(height: 16),
-              Text(error.message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(error.message,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: state.isLoading ? null : _submit,
               child: state.isLoading
-                  ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const Text('Iniciar sesión'),
             ),
             const SizedBox(height: 16),
@@ -92,7 +100,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 const Text('¿No tenés cuenta?'),
                 TextButton(
-                  onPressed: state.isLoading ? null : () => context.go(AppRoutes.register),
+                  onPressed: state.isLoading
+                      ? null
+                      : () => context.go(AppRoutes.register),
                   child: const Text('Crear cuenta'),
                 ),
               ],

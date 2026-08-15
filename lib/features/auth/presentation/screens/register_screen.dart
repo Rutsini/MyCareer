@@ -53,9 +53,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextFormField(controller: _name, enabled: !state.isLoading, textInputAction: TextInputAction.next, decoration: const InputDecoration(labelText: 'Nombre'), validator: Validators.requiredName),
+            TextFormField(
+                controller: _name,
+                enabled: !state.isLoading,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+                validator: Validators.requiredName),
             const SizedBox(height: 16),
-            TextFormField(controller: _email, enabled: !state.isLoading, keyboardType: TextInputType.emailAddress, textInputAction: TextInputAction.next, decoration: const InputDecoration(labelText: 'Email'), validator: Validators.email),
+            TextFormField(
+                controller: _email,
+                enabled: !state.isLoading,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: Validators.email),
             const SizedBox(height: 16),
             TextFormField(
               controller: _password,
@@ -65,9 +76,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               decoration: InputDecoration(
                 labelText: 'Contraseña',
                 suffixIcon: IconButton(
-                  tooltip: _obscurePassword ? 'Mostrar contraseña' : 'Ocultar contraseña',
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  tooltip: _obscurePassword
+                      ? 'Mostrar contraseña'
+                      : 'Ocultar contraseña',
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(_obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
                 ),
               ),
               validator: Validators.password,
@@ -79,23 +95,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               obscureText: _obscurePassword,
               textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(labelText: 'Confirmar contraseña'),
-              validator: (value) => Validators.passwordConfirmation(value, _password.text),
+              decoration:
+                  const InputDecoration(labelText: 'Confirmar contraseña'),
+              validator: (value) =>
+                  Validators.passwordConfirmation(value, _password.text),
             ),
             if (error != null) ...[
               const SizedBox(height: 16),
-              Text(error.message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(error.message,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: state.isLoading ? null : _submit,
               child: state.isLoading
-                  ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const Text('Crear cuenta'),
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: state.isLoading ? null : () => context.go(AppRoutes.login),
+              onPressed:
+                  state.isLoading ? null : () => context.go(AppRoutes.login),
               child: const Text('Ya tengo una cuenta'),
             ),
           ],

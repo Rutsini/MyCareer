@@ -13,7 +13,8 @@ class ContentPage extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppConstants.contentMaxWidth),
+            constraints:
+                const BoxConstraints(maxWidth: AppConstants.contentMaxWidth),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

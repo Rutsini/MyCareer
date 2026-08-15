@@ -12,7 +12,8 @@ class DashboardScreen extends StatelessWidget {
         child: EmptyStateCard(
           icon: Icons.waving_hand_outlined,
           title: 'Bienvenido',
-          message: 'Tu información académica aparecerá acá cuando cargues tus materias.',
+          message:
+              'Tu información académica aparecerá acá cuando cargues tus materias.',
         ),
       );
 }

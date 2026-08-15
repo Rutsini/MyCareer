@@ -39,7 +39,8 @@ class FirebaseAuthRepository implements AuthRepository {
     } on FirebaseAuthException catch (error) {
       throw _translate(error);
     } catch (error) {
-      throw AuthException('No pudimos iniciar sesión. Intentá nuevamente.', cause: error);
+      throw AuthException('No pudimos iniciar sesión. Intentá nuevamente.',
+          cause: error);
     }
   }
 
@@ -91,7 +92,8 @@ class FirebaseAuthRepository implements AuthRepository {
     } on AuthException {
       rethrow;
     } catch (error) {
-      throw AuthException('No pudimos crear la cuenta. Intentá nuevamente.', cause: error);
+      throw AuthException('No pudimos crear la cuenta. Intentá nuevamente.',
+          cause: error);
     }
   }
 
@@ -125,7 +127,8 @@ class FirebaseAuthRepository implements AuthRepository {
     final message = switch (error.code) {
       'invalid-email' => 'El correo ingresado no es válido.',
       'user-not-found' => 'No existe un usuario con ese correo.',
-      'wrong-password' || 'invalid-credential' =>
+      'wrong-password' ||
+      'invalid-credential' =>
         'El correo o la contraseña no son correctos.',
       'email-already-in-use' => 'Ese correo ya está registrado.',
       'weak-password' => 'La contraseña es demasiado débil.',

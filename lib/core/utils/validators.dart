@@ -16,7 +16,9 @@ abstract final class Validators {
 
   static String? password(String? value) {
     if (value == null || value.isEmpty) return 'Ingresá tu contraseña.';
-    if (value.length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (value.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres.';
+    }
     return null;
   }
 
