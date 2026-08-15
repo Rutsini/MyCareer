@@ -120,7 +120,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         return Card(
             child: ListTile(
                 title: Text(subject?.name ?? 'Materia'),
-                subtitle: Text(e.name),
+                subtitle: Text(e.reminders.where((r) => r.enabled).isEmpty
+                    ? e.name
+                    : '${e.name} · 🔔 ${e.reminders.where((r) => r.enabled).length}'),
                 trailing: Text(_status(e.status))));
       }),
       const Spacer(),

@@ -9,4 +9,9 @@ class UserProfileService {
   Stream<DocumentSnapshot<Map<String, dynamic>>> watch() => _doc.snapshots();
   Future<void> updateCareer(Map<String, dynamic> career) => _doc
       .update({'career': career, 'updatedAt': FieldValue.serverTimestamp()});
+  Future<void> updateNotificationSettings(Map<String, dynamic> settings) =>
+      _doc.update({
+        'settings.notifications': settings,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 }

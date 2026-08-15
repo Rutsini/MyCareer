@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/evaluation.dart';
+import '../../../../domain/entities/evaluation_reminder.dart';
 import '../../../../domain/entities/subject.dart';
 import '../../../subjects/application/subject_controller.dart';
 import '../../application/evaluation_controller.dart';
+import '../../../profile/application/profile_controller.dart';
 
 class EvaluationFormScreen extends ConsumerStatefulWidget {
   const EvaluationFormScreen(
@@ -40,6 +42,7 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
   bool _counts = true;
   bool? _presented;
   bool _initialized = false;
+  List<EvaluationReminder> _reminders = [];
 
   @override
   void initState() {
@@ -84,6 +87,7 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
     _status = evaluation.status;
     _recoveryOf = evaluation.recoveryOfEvaluationId;
     _notes.text = evaluation.notes ?? '';
+    _reminders = List.of(evaluation.reminders);
   }
 
   Evaluation _build(List<Subject> subjects) {
@@ -111,6 +115,7 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       createdAt: now,
       updatedAt: now,
+      reminders: List.unmodifiable(_reminders),
     );
   }
 
@@ -153,6 +158,21 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
                 subjects.where((s) => s.id == _subjectId).firstOrNull;
             if (subject != null) _maxGrade.text = subject.gradeMax.toString();
           }
+          final defaults = ref
+                  .read(userProfileProvider)
+                  .valueOrNull
+                  ?.settings
+                  .notifications
+                  .defaultReminderOffsetsMinutes ??
+              const <int>[1440];
+          _reminders = defaults
+              .where((offset) => _allDay ? offset % 1440 == 0 : true)
+              .take(5)
+              .map((offset) => EvaluationReminder(
+                    id: 'reminder_${DateTime.now().microsecondsSinceEpoch}_$offset',
+                    offsetMinutes: offset,
+                  ))
+              .toList();
         }
         final evaluations =
             ref.watch(evaluationsProvider).valueOrNull ?? const <Evaluation>[];
@@ -244,13 +264,47 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
                             firstDate: DateTime(1950),
                             lastDate: DateTime(2200),
                             initialDate: _date);
-                        if (value != null) setState(() => _date = value);
+                        if (value != null) {
+                          setState(() => _date = DateTime(
+                              value.year,
+                              value.month,
+                              value.day,
+                              _date.hour,
+                              _date.minute));
+                        }
                       }),
                   SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Todo el día'),
                       value: _allDay,
-                      onChanged: (v) => setState(() => _allDay = v)),
+                      onChanged: (v) => setState(() {
+                            _allDay = v;
+                            if (v) {
+                              _reminders = _reminders
+                                  .where((r) => r.offsetMinutes % 1440 == 0)
+                                  .toList();
+                            }
+                          })),
+                  if (!_allDay)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Hora *'),
+                      subtitle: Text(
+                        '${_date.hour.toString().padLeft(2, '0')}:'
+                        '${_date.minute.toString().padLeft(2, '0')}',
+                      ),
+                      trailing: const Icon(Icons.schedule),
+                      onTap: () async {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(_date),
+                        );
+                        if (time != null) {
+                          setState(() => _date = DateTime(_date.year,
+                              _date.month, _date.day, time.hour, time.minute));
+                        }
+                      },
+                    ),
                   SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Obligatoria'),
@@ -301,6 +355,64 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
                       maxLines: 3,
                       decoration: const InputDecoration(
                           labelText: 'Notas / observaciones')),
+                  const SizedBox(height: 20),
+                  Text('Recordatorios',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: (_allDay
+                            ? const <int, String>{
+                                0: 'El mismo día',
+                                1440: '1 día antes',
+                                2880: '2 días antes',
+                                10080: '1 semana antes',
+                              }
+                            : const <int, String>{
+                                0: 'Al momento',
+                                15: '15 min antes',
+                                30: '30 min antes',
+                                60: '1 hora antes',
+                                120: '2 horas antes',
+                                1440: '1 día antes',
+                                2880: '2 días antes',
+                                10080: '1 semana antes',
+                              })
+                        .entries
+                        .map((preset) {
+                      final selected = _reminders.any(
+                          (r) => r.offsetMinutes == preset.key && r.enabled);
+                      return FilterChip(
+                        label: Text(preset.value),
+                        selected: selected,
+                        onSelected: (value) => setState(() {
+                          if (value && _reminders.length < 5) {
+                            _reminders.add(EvaluationReminder(
+                              id: 'reminder_${DateTime.now().microsecondsSinceEpoch}_${preset.key}',
+                              offsetMinutes: preset.key,
+                            ));
+                          } else if (!value) {
+                            _reminders.removeWhere(
+                                (r) => r.offsetMinutes == preset.key);
+                          }
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                  if (!(ref
+                          .watch(userProfileProvider)
+                          .valueOrNull
+                          ?.settings
+                          .notifications
+                          .enabled ??
+                      false))
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Estos recordatorios se guardarán, pero no se mostrarán hasta que actives las notificaciones.',
+                      ),
+                    ),
                   if (state.hasError)
                     Padding(
                         padding: const EdgeInsets.only(top: 12),

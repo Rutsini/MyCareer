@@ -133,7 +133,11 @@ class _Dashboard extends StatelessWidget {
                     .map((item) => ListTile(
                           leading: const Icon(Icons.event_outlined),
                           title: Text(item.evaluation.name),
-                          subtitle: Text(item.subjectName),
+                          subtitle: Text(item.evaluation.reminders
+                                  .where((reminder) => reminder.enabled)
+                                  .isEmpty
+                              ? item.subjectName
+                              : '${item.subjectName} · 🔔 ${item.evaluation.reminders.where((reminder) => reminder.enabled).length} recordatorio${item.evaluation.reminders.where((reminder) => reminder.enabled).length == 1 ? '' : 's'}'),
                           trailing: Text(_friendlyDate(item)),
                           onTap: () => context
                               .go(AppRoutes.editEvaluation(item.evaluation.id)),

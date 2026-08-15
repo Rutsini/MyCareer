@@ -1,3 +1,5 @@
+import 'notification_settings.dart';
+
 class CareerSettings {
   const CareerSettings(
       {this.name,
@@ -11,13 +13,16 @@ class CareerSettings {
 }
 
 class UserSettings {
-  const UserSettings(
-      {this.theme = 'system',
-      this.defaultGradeMin = 0,
-      this.defaultGradeMax = 10});
+  const UserSettings({
+    this.theme = 'system',
+    this.defaultGradeMin = 0,
+    this.defaultGradeMax = 10,
+    this.notifications = const NotificationSettings(),
+  });
   final String theme;
   final double defaultGradeMin;
   final double defaultGradeMax;
+  final NotificationSettings notifications;
 }
 
 class UserProfile {

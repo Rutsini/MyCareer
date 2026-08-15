@@ -1,3 +1,5 @@
+import 'evaluation_reminder.dart';
+
 enum EvaluationType {
   partial,
   recovery,
@@ -40,6 +42,7 @@ class Evaluation {
     this.notes,
     required this.createdAt,
     required this.updatedAt,
+    this.reminders = const [],
   });
 
   final String id;
@@ -62,6 +65,7 @@ class Evaluation {
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<EvaluationReminder> reminders;
 
   String? validate() {
     final trimmed = name.trim();
@@ -92,6 +96,20 @@ class Evaluation {
     } else if (recoveryOfEvaluationId != null) {
       return 'Una evaluación normal no puede vincular un recuperatorio.';
     }
+    if (reminders.length > 5) {
+      return 'Podés configurar hasta 5 recordatorios por evaluación.';
+    }
+    final activeOffsets = <int>{};
+    for (final reminder in reminders) {
+      final error = reminder.validate();
+      if (error != null) return error;
+      if (allDay && reminder.offsetMinutes % 1440 != 0) {
+        return 'Las evaluaciones sin horario admiten recordatorios por días.';
+      }
+      if (reminder.enabled && !activeOffsets.add(reminder.offsetMinutes)) {
+        return 'No puede haber recordatorios activos duplicados.';
+      }
+    }
     return null;
   }
 
@@ -120,6 +138,7 @@ class Evaluation {
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<EvaluationReminder>? reminders,
   }) =>
       Evaluation(
         id: id ?? this.id,
@@ -146,5 +165,6 @@ class Evaluation {
         notes: notes ?? this.notes,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
+        reminders: List.unmodifiable(reminders ?? this.reminders),
       );
 }

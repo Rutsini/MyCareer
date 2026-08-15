@@ -6,6 +6,8 @@ import '../../../core/errors/app_exception.dart';
 import '../../../data/firebase/auth_service.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../domain/entities/user_profile.dart';
+import '../../../core/notifications/notification_providers.dart';
+import '../../../domain/services/notification_id_generator.dart';
 
 final firebaseAuthProvider =
     Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
@@ -25,13 +27,20 @@ final authStateProvider = StreamProvider<UserProfile?>(
 );
 final authControllerProvider =
     StateNotifierProvider<AuthController, AsyncValue<void>>(
-  (ref) => AuthController(ref.watch(authRepositoryProvider)),
+  (ref) => AuthController(ref.watch(authRepositoryProvider), () async {
+    final gateway = ref.read(localNotificationGatewayProvider);
+    for (final id in await gateway.pendingIds()) {
+      if (NotificationIdGenerator.isAcademic(id)) await gateway.cancel(id);
+    }
+  }),
 );
 
 class AuthController extends StateNotifier<AsyncValue<void>> {
-  AuthController(this._repository) : super(const AsyncData(null));
+  AuthController(this._repository, [this._beforeSignOut])
+      : super(const AsyncData(null));
 
   final AuthRepository _repository;
+  final Future<void> Function()? _beforeSignOut;
 
   Future<bool> signIn({required String email, required String password}) =>
       _run(() => _repository.signIn(email: email, password: password));
@@ -47,7 +56,10 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
             password: password,
           ));
 
-  Future<bool> signOut() => _run(_repository.signOut);
+  Future<bool> signOut() => _run(() async {
+        await _beforeSignOut?.call();
+        await _repository.signOut();
+      });
 
   Future<bool> _run(Future<void> Function() operation) async {
     if (state.isLoading) return false;

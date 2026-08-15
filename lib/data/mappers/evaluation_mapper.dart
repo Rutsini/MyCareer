@@ -1,12 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/evaluation.dart';
+import '../../domain/entities/evaluation_reminder.dart';
 import 'firestore_mapper_utils.dart';
 
 T _enumValue<T extends Enum>(List<T> values, Object? value, T fallback) =>
     values.where((item) => item.name == value).firstOrNull ?? fallback;
 
 abstract final class EvaluationMapper {
+  static List<EvaluationReminder> remindersFromValue(Object? value) {
+    if (value is! List) return const [];
+    final result = <EvaluationReminder>[];
+    for (final item in value) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final id = map['id'];
+      final offset = map['offsetMinutes'];
+      if (id is! String || id.trim().isEmpty || offset is! num) continue;
+      final reminder = EvaluationReminder(
+        id: id,
+        offsetMinutes: offset.toInt(),
+        enabled: map['enabled'] as bool? ?? true,
+      );
+      if (reminder.validate() == null) result.add(reminder);
+      if (result.length == 5) break;
+    }
+    return List.unmodifiable(result);
+  }
+
   static Evaluation fromDocument(
       DocumentSnapshot<Map<String, dynamic>> document) {
     final data = document.data() ?? const <String, dynamic>{};
@@ -34,6 +55,7 @@ abstract final class EvaluationMapper {
       notes: data['notes'] as String?,
       createdAt: dateFromFirestore(data['createdAt']),
       updatedAt: dateFromFirestore(data['updatedAt']),
+      reminders: remindersFromValue(data['reminders']),
     );
   }
 
@@ -62,6 +84,13 @@ abstract final class EvaluationMapper {
             : evaluation.notes!.trim(),
         if (creating) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'schemaVersion': 1,
+        'reminders': evaluation.reminders
+            .map((reminder) => {
+                  'id': reminder.id,
+                  'offsetMinutes': reminder.offsetMinutes,
+                  'enabled': reminder.enabled,
+                })
+            .toList(),
+        'schemaVersion': 2,
       };
 }

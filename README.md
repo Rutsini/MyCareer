@@ -1,4 +1,4 @@
-# MyCareer — v0.5
+# MyCareer — v0.6
 
 Aplicación académica personal desarrollada con Flutter para Android y Web.
 
@@ -6,9 +6,9 @@ MyCareer permite registrar y organizar la trayectoria académica de un estudiant
 
 ## Estado actual
 
-Versión: **0.5.0+5**
+Versión: **0.6.0+6**
 
-La v0.5 incluye todo lo anterior y además:
+La v0.6 incluye todo lo anterior y además:
 
 - Autenticación mediante correo electrónico y contraseña.
 - Integración con Firebase Authentication.
@@ -46,11 +46,16 @@ La v0.5 incluye todo lo anterior y además:
 - Promedio general y progreso de puntos electivos compartidos con Progreso.
 - Selector local de año y accesos rápidos a materias, evaluaciones, calendario y
   progreso.
+- Notificaciones locales y recordatorios configurables por evaluación.
+- Activación y permiso explícitos, defaults globales y hora para evaluaciones sin horario.
+- Reprogramación al editar, resolución o eliminación, y cancelación al desactivar o cerrar sesión.
+- Timezone IANA obtenida del dispositivo mediante `flutter_timezone`.
+- Navegación a la evaluación al tocar una notificación con payload válido.
+- Scheduling inexacto Android restaurable tras reinicio y recordatorios runtime Web.
 
 Todavía no se incluyen:
 
 - Asistencia.
-- Notificaciones.
 
 Estas funcionalidades se incorporarán en versiones posteriores.
 
@@ -64,6 +69,12 @@ Estas funcionalidades se incorporarán en versiones posteriores.
 - Riverpod
 - go_router
 - Material 3
+- flutter_local_notifications 22.3.0
+- timezone 0.11.1
+- flutter_timezone 5.1.0
+
+El mínimo declarado continúa siendo Dart `>=3.4.0 <4.0.0`; el entorno validado
+usa Flutter 3.47.0 y Dart 3.13.0.
 
 ## Arquitectura
 
@@ -92,6 +103,7 @@ lib/
 ├── core/
 │   ├── constants/
 │   ├── errors/
+│   ├── notifications/
 │   ├── utils/
 │   └── widgets/
 │
@@ -112,6 +124,7 @@ lib/
 │   ├── evaluations/
 │   ├── calendar/
 │   ├── progress/
+│   ├── notifications/
 │   └── profile/
 │
 ├── firebase_options.dart
@@ -134,6 +147,7 @@ La estructura utilizada actualmente es:
 
 ```text
 users/{uid}
+  settings.notifications
 
 users/{uid}/academicYears/{year}
 
@@ -142,6 +156,7 @@ users/{uid}/subjects/{subjectId}
   regularityRules[]
 
 users/{uid}/evaluations/{evaluationId}
+  reminders[]
 ```
 
 Ejemplo:
@@ -166,12 +181,13 @@ users
         └── ...
 ```
 
-No existen las colecciones:
+No existen las colecciones (los recordatorios se embeben, no crean una colección):
 
 ```text
 progress
 dashboard
 history
+notifications
 ```
 
 El historial se obtiene actualmente a partir de las propias materias.
@@ -179,7 +195,34 @@ El historial se obtiene actualmente a partir de las propias materias.
 Las evaluaciones se mantienen en una colección plana bajo el usuario e incluyen
 `subjectId`. La aplicación observa esa colección una vez y filtra localmente por
 materia, mes y día. Esto evita consultas por cada día del calendario y no requiere
-índices compuestos en v0.5.
+índices compuestos en v0.6.
+
+`settings.notifications` contiene `enabled`,
+`defaultReminderOffsetsMinutes`, `allDayReminderHour` y
+`allDayReminderMinute`. Los perfiles anteriores reciben defaults desactivados,
+un día antes y 09:00. Cada Evaluation guarda una lista pequeña `reminders[]` y
+usa `schemaVersion: 2`; el mapper sigue leyendo documentos v1 o sin versión.
+
+## Notificaciones por plataforma
+
+### Android
+
+Los recordatorios se programan localmente con
+`AndroidScheduleMode.inexactAllowWhileIdle`. Android puede mostrarlos aunque
+MyCareer esté cerrada. El manifest declara `RECEIVE_BOOT_COMPLETED` y los
+receivers oficiales del plugin para restaurarlos después de reiniciar. No se
+solicitan `SCHEDULE_EXACT_ALARM` ni `USE_EXACT_ALARM`.
+
+### Web
+
+Los navegadores no ofrecen programación local futura equivalente. MyCareer
+mantiene un único timer para el próximo recordatorio y muestra una notificación
+inmediata al vencer, en modalidad best-effort, mientras la pestaña está abierta.
+Con la pestaña o el navegador cerrados no existe garantía de aviso y nunca se
+invoca `zonedSchedule` en Web.
+
+El permiso solo se solicita al pulsar “Activar notificaciones”. El estado real
+del sistema/navegador es la fuente de verdad y no se persiste en Firestore.
 
 El dashboard se calcula dinámicamente. No existe una colección `dashboard` ni una
 cache persistida de `progress`.
@@ -284,16 +327,19 @@ Antes de cerrar una versión se ejecuta:
 dart format lib test
 flutter analyze
 flutter test
+flutter build web
+flutter build apk --debug
+git diff --check
 ```
 
-Estado de la v0.5:
+Estado de la v0.6:
 
 ```text
 flutter analyze
 No issues found
 
 flutter test
-77 tests aprobados
+100 tests aprobados
 ```
 
 ## Roadmap
@@ -321,6 +367,9 @@ Dashboard académico completo
 
 v0.6
 Notificaciones y recordatorios
+✅ Completada
+
+Próximas mejoras: por definir
 ```
 
 ## Plataformas objetivo

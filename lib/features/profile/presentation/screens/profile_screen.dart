@@ -1,11 +1,15 @@
 // ignore_for_file: curly_braces_in_flow_control_structures, use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/user_profile.dart';
+import '../../../../domain/entities/notification_settings.dart';
+import '../../../../core/notifications/local_notification_gateway.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../application/profile_controller.dart';
+import '../../../notifications/application/notification_controller.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -38,6 +42,9 @@ class ProfileScreen extends ConsumerWidget {
                                   ]))),
                       const SizedBox(height: 16),
                       _CareerForm(profile: p),
+                      const SizedBox(height: 16),
+                      _NotificationSettingsCard(
+                          settings: p.settings.notifications),
                       const SizedBox(height: 24),
                       OutlinedButton.icon(
                           onPressed: ref.watch(authControllerProvider).isLoading
@@ -48,6 +55,128 @@ class ProfileScreen extends ConsumerWidget {
                           icon: const Icon(Icons.logout),
                           label: const Text('Cerrar sesión'))
                     ])));
+  }
+}
+
+class _NotificationSettingsCard extends ConsumerWidget {
+  const _NotificationSettingsCard({required this.settings});
+  final NotificationSettings settings;
+
+  static const choices = <int, String>{
+    1440: '1 día antes',
+    2880: '2 días antes',
+    10080: '1 semana antes',
+  };
+
+  String _permissionLabel(NotificationPermissionState state) => switch (state) {
+        NotificationPermissionState.granted => 'Permitido',
+        NotificationPermissionState.denied => 'Denegado',
+        NotificationPermissionState.unknown => 'Sin solicitar',
+        NotificationPermissionState.notSupported => 'No disponible',
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final permission = ref.watch(notificationPermissionProvider);
+    final controller = ref.read(profileControllerProvider.notifier);
+    final loading = ref.watch(profileControllerProvider).isLoading;
+    final offsets = settings.defaultReminderOffsetsMinutes.toSet();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('NOTIFICACIONES Y RECORDATORIOS',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Text(
+              'Notificaciones: ${settings.enabled ? 'Activadas' : 'Desactivadas'}'),
+          Text('Permiso: ${_permissionLabel(permission)}'),
+          const SizedBox(height: 8),
+          Text(kIsWeb
+              ? 'En Web, los recordatorios funcionan mientras MyCareer esté abierto.'
+              : 'Android puede mostrar recordatorios aunque cierres MyCareer.'),
+          const Divider(height: 28),
+          Text('Recordatorios por defecto',
+              style: Theme.of(context).textTheme.titleSmall),
+          ...choices.entries.map((choice) => CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(choice.value),
+                value: offsets.contains(choice.key),
+                onChanged: loading
+                    ? null
+                    : (selected) {
+                        final next = {...offsets};
+                        selected == true
+                            ? next.add(choice.key)
+                            : next.remove(choice.key);
+                        controller.saveNotifications(settings.copyWith(
+                          defaultReminderOffsetsMinutes: next.toList()..sort(),
+                        ));
+                      },
+              )),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Hora para evaluaciones sin horario'),
+            subtitle: Text(
+              '${settings.allDayReminderHour.toString().padLeft(2, '0')}:'
+              '${settings.allDayReminderMinute.toString().padLeft(2, '0')}',
+            ),
+            trailing: const Icon(Icons.schedule),
+            onTap: loading
+                ? null
+                : () async {
+                    final value = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay(
+                        hour: settings.allDayReminderHour,
+                        minute: settings.allDayReminderMinute,
+                      ),
+                    );
+                    if (value != null) {
+                      await controller.saveNotifications(settings.copyWith(
+                        allDayReminderHour: value.hour,
+                        allDayReminderMinute: value.minute,
+                      ));
+                    }
+                  },
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: loading
+                ? null
+                : () async {
+                    if (settings.enabled) {
+                      await controller.saveNotifications(
+                        settings.copyWith(enabled: false),
+                      );
+                    } else {
+                      await controller.enableNotifications(settings);
+                    }
+                    ref.read(notificationPermissionProvider.notifier).state =
+                        await ref
+                            .read(notificationCoordinatorProvider)
+                            .permissionStatus();
+                  },
+            icon: Icon(settings.enabled
+                ? Icons.notifications_off_outlined
+                : Icons.notifications_active_outlined),
+            label: Text(settings.enabled
+                ? 'Desactivar notificaciones'
+                : 'Activar notificaciones'),
+          ),
+          if (permission == NotificationPermissionState.granted) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () =>
+                  ref.read(notificationCoordinatorProvider).showTest(),
+              icon: const Icon(Icons.notification_add_outlined),
+              label: const Text('Enviar notificación de prueba'),
+            ),
+          ],
+        ]),
+      ),
+    );
   }
 }
 
