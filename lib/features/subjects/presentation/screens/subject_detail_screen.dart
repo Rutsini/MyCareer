@@ -28,33 +28,47 @@ class _State extends ConsumerState<SubjectDetailScreen> {
   Widget build(BuildContext context) =>
       ref.watch(subjectProvider(widget.subjectId)).when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => const ContentPage(
-              title: 'Materia', child: Text('No pudimos cargar la materia.')),
+          error: (_, __) => ContentPage(
+              title: 'Materia',
+              showBackButton: true,
+              backFallback: () => context.go(AppRoutes.subjects),
+              child: const Text('No pudimos cargar la materia.')),
           data: (subject) {
             if (subject == null)
-              return const ContentPage(
-                  title: 'Materia', child: Text('La materia no existe.'));
+              return ContentPage(
+                  title: 'Materia',
+                  showBackButton: true,
+                  backFallback: () => context.go(AppRoutes.subjects),
+                  child: const Text('La materia no existe.'));
             if (subject.trackingMode == TrackingMode.historical)
               return ContentPage(
-                  title: subject.name, child: _summaryCard(subject, const []));
+                  title: subject.name,
+                  showBackButton: true,
+                  backFallback: () => context.go(AppRoutes.subjects),
+                  child: _summaryCard(subject, const []));
             return DefaultTabController(
                 length: 3,
                 child: ContentPage(
                     title: subject.name,
+                    showBackButton: true,
+                    backFallback: () => context.go(AppRoutes.subjects),
                     child: Column(children: [
-                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                        OutlinedButton.icon(
-                            onPressed: () =>
-                                context.go(AppRoutes.editSubject(subject.id)),
-                            icon: const Icon(Icons.edit),
-                            label: const Text('Editar')),
-                        const SizedBox(width: 8),
-                        FilledButton.icon(
-                            onPressed: () => context.push(
-                                '${AppRoutes.newEvaluation}?subjectId=${subject.id}'),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Evaluación'))
-                      ]),
+                      Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton.icon(
+                                onPressed: () => context
+                                    .go(AppRoutes.editSubject(subject.id)),
+                                icon: const Icon(Icons.edit),
+                                label: const Text('Editar')),
+                            FilledButton.icon(
+                                onPressed: () => context.push(
+                                    '${AppRoutes.newEvaluation}?subjectId=${subject.id}'),
+                                icon: const Icon(Icons.add),
+                                label: const Text('Evaluación'))
+                          ]),
                       const TabBar(tabs: [
                         Tab(text: 'Resumen'),
                         Tab(text: 'Evaluaciones'),

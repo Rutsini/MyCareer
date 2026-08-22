@@ -221,6 +221,11 @@ class _CareerFormState extends ConsumerState<_CareerForm> {
                 children: [
                   Text('Configuración académica',
                       style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Estos datos corresponden a tu carrera completa, salvo el año actual.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                       controller: name,
@@ -229,21 +234,27 @@ class _CareerFormState extends ConsumerState<_CareerForm> {
                   TextField(
                       controller: current,
                       keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Año actual')),
+                      decoration: const InputDecoration(
+                          labelText: 'Año de carrera actual',
+                          helperText: 'Ej.: 4')),
                   const SizedBox(height: 12),
                   TextField(
                       controller: total,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                          labelText: 'Total de materias')),
+                          labelText: 'Total de materias de la carrera',
+                          helperText:
+                              'Total requerido por tu plan de estudios')),
                   const SizedBox(height: 12),
                   TextField(
                       controller: points,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                          labelText: 'Puntos electivos requeridos')),
+                          labelText:
+                              'Puntos electivos requeridos para completar la carrera',
+                          helperText:
+                              'Total requerido por tu plan de estudios')),
                   if (state.hasError) ...[
                     const SizedBox(height: 12),
                     Text((state.error as AppException).message,

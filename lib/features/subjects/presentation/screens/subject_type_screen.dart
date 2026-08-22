@@ -8,6 +8,8 @@ class SubjectTypeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ContentPage(
       title: '¿Qué querés agregar?',
+      showBackButton: true,
+      backFallback: () => context.go(AppRoutes.subjects),
       child: Wrap(spacing: 16, runSpacing: 16, children: [
         _Choice(
             icon: Icons.menu_book,

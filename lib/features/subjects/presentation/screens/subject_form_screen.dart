@@ -39,6 +39,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
   DateTime? _approvedAt;
   int _step = 0;
   bool _initialized = false;
+  bool _submitting = false;
   TrackingMode get _mode =>
       widget.mode ??
       ref.read(subjectProvider(widget.subjectId!)).valueOrNull?.trackingMode ??
@@ -143,6 +144,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
   }
 
   Future<void> _save(List<AcademicYear> years, {bool another = false}) async {
+    if (_submitting) return;
     if (!_form.currentState!.validate()) return;
     final error = _validate(years);
     if (error != null) {
@@ -150,36 +152,42 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
           .showSnackBar(SnackBar(content: Text(error)));
       return;
     }
-    final id =
-        await ref.read(subjectControllerProvider.notifier).save(_build(years));
-    if (!mounted || id == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_mode == TrackingMode.historical
-            ? '✓ Materia agregada al historial'
-            : '✓ Materia creada')));
-    if (another) {
-      final year = _yearId;
-      setState(() {
-        for (final c in [
-          _name,
-          _short,
-          _code,
-          _commission,
-          _points,
-          _grade,
-          _notes
-        ]) {
-          c.clear();
-        }
-        _yearId = year;
-        _type = SubjectType.mandatory;
-        _duration = SubjectDuration.annual;
-        _semester = null;
-        _outcome = FinalOutcome.approved;
-        _approvedAt = null;
-      });
-    } else {
-      context.go(AppRoutes.subject(id));
+    setState(() => _submitting = true);
+    try {
+      final id = await ref
+          .read(subjectControllerProvider.notifier)
+          .save(_build(years));
+      if (!mounted || id == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_mode == TrackingMode.historical
+              ? '✓ Materia agregada al historial'
+              : '✓ Materia creada')));
+      if (another) {
+        final year = _yearId;
+        setState(() {
+          for (final c in [
+            _name,
+            _short,
+            _code,
+            _commission,
+            _points,
+            _grade,
+            _notes
+          ]) {
+            c.clear();
+          }
+          _yearId = year;
+          _type = SubjectType.mandatory;
+          _duration = SubjectDuration.annual;
+          _semester = null;
+          _outcome = FinalOutcome.approved;
+          _approvedAt = null;
+        });
+      } else {
+        context.go(AppRoutes.subject(id));
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -189,12 +197,16 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         context: context,
         builder: (c) => AlertDialog(
                 title: const Text('Crear año académico'),
-                content: TextField(
-                    controller: controller,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                        labelText: 'Año', hintText: '2026')),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Align(
+                      alignment: Alignment.centerLeft, child: Text('Año')),
+                  const SizedBox(height: 6),
+                  TextField(
+                      controller: controller,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(hintText: '2026'))
+                ]),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(c),
@@ -225,31 +237,39 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         : ref.watch(subjectProvider(widget.subjectId!));
     return yearsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const ContentPage(
+        error: (_, __) => ContentPage(
             title: 'Materia',
-            child: Text('No pudimos cargar los años académicos.')),
+            showBackButton: true,
+            backFallback: () => context.go(AppRoutes.subjects),
+            child: const Text('No pudimos cargar los años académicos.')),
         data: (years) {
           if (existing?.isLoading == true)
             return const Center(child: CircularProgressIndicator());
           if (existing?.hasError == true)
-            return const ContentPage(
-                title: 'Materia', child: Text('No pudimos cargar la materia.'));
+            return ContentPage(
+                title: 'Materia',
+                showBackButton: true,
+                backFallback: () => context.go(AppRoutes.subjects),
+                child: const Text('No pudimos cargar la materia.'));
           if (existing?.valueOrNull case final s?) _load(s);
           _defaults(years);
-          final saving = ref.watch(subjectControllerProvider).isLoading;
+          final saving =
+              _submitting || ref.watch(subjectControllerProvider).isLoading;
           return ContentPage(
               title: widget.subjectId == null
                   ? (_mode == TrackingMode.tracked
                       ? 'Nueva materia en cursado'
                       : 'Materia ya cursada')
                   : 'Editar materia',
+              showBackButton: true,
+              backFallback: () => context.go(AppRoutes.subjects),
               child: Form(
                   key: _form,
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (_mode == TrackingMode.tracked) ...[
-                          _currentStepper(years)
+                          _currentStepper(years, saving)
                         ] else ...[
                           _historicalForm(years)
                         ],
@@ -279,73 +299,131 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         });
   }
 
-  Widget _currentStepper(List<AcademicYear> years) => Stepper(
+  bool _canContinueFrom(int step) {
+    if (step != 0) return true;
+    final fieldsAreValid = _form.currentState?.validate() ?? false;
+    if (_yearId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Seleccioná o creá un año académico.')));
+      return false;
+    }
+    return fieldsAreValid;
+  }
+
+  void _goToStep(int target) {
+    if (target <= _step || _canContinueFrom(_step)) {
+      setState(() => _step = target);
+    }
+  }
+
+  Widget _stepActions(List<AcademicYear> years, bool saving) => Padding(
+        padding: const EdgeInsets.only(top: 20),
+        child: Row(
+          children: [
+            if (_step > 0) ...[
+              TextButton(
+                onPressed: saving ? null : () => setState(() => _step--),
+                child: const Text('Atrás'),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: FilledButton(
+                onPressed: saving
+                    ? null
+                    : () {
+                        if (_step < 3) {
+                          if (_canContinueFrom(_step)) {
+                            setState(() => _step++);
+                          }
+                        } else {
+                          _save(years);
+                        }
+                      },
+                child: saving && _step == 3
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(_step == 3
+                        ? (widget.subjectId == null
+                            ? 'Crear materia'
+                            : 'Guardar cambios')
+                        : 'Continuar'),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _stepContent(Widget child, List<AcademicYear> years, bool saving) =>
+      Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [child, _stepActions(years, saving)],
+        ),
+      );
+
+  Widget _currentStepper(List<AcademicYear> years, bool saving) => Stepper(
           currentStep: _step,
-          onStepTapped: (v) => setState(() => _step = v),
-          onStepCancel: _step == 0 ? null : () => setState(() => _step--),
-          onStepContinue: () {
-            if (_step < 3) {
-              setState(() => _step++);
-            } else {
-              _save(years);
-            }
-          },
-          controlsBuilder: (context, d) => Row(children: [
-                FilledButton(
-                    onPressed: d.onStepContinue,
-                    child: Text(_step == 3 ? 'Crear materia' : 'Continuar')),
-                if (_step > 0)
-                  TextButton(
-                      onPressed: d.onStepCancel, child: const Text('Atrás'))
-              ]),
+          onStepTapped: _goToStep,
+          controlsBuilder: (_, __) => const SizedBox.shrink(),
           steps: [
             Step(
                 title: const Text('Datos básicos'),
                 isActive: _step >= 0,
-                content: _basic(years)),
+                content: _stepContent(_basic(years), years, saving)),
             Step(
                 title: const Text('Tipo y duración'),
                 isActive: _step >= 1,
-                content: _typeDuration()),
+                content: _stepContent(_typeDuration(), years, saving)),
             Step(
                 title: const Text('Condiciones académicas'),
                 isActive: _step >= 2,
-                content: const ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.info_outline),
-                    title: Text(
-                        'La configuración de promoción y regularidad se incorporará en la próxima versión.'),
-                    subtitle: Text('Podrás editarla posteriormente.'))),
+                content: _stepContent(
+                    const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.info_outline),
+                        title: Text(
+                            'La configuración de promoción y regularidad se incorporará en la próxima versión.'),
+                        subtitle: Text('Podrás editarla posteriormente.')),
+                    years,
+                    saving)),
             Step(
                 title: const Text('Revisión'),
                 isActive: _step >= 3,
-                content: _review(years))
+                content: _stepContent(_review(years), years, saving))
           ]);
   Widget _historicalForm(List<AcademicYear> years) => Column(children: [
         _basic(years),
         const SizedBox(height: 20),
         _typeDuration(),
         const SizedBox(height: 20),
-        DropdownButtonFormField(
-            value: _outcome,
-            decoration: const InputDecoration(labelText: 'Resultado final *'),
-            items: FinalOutcome.values
-                .map((v) =>
-                    DropdownMenuItem(value: v, child: Text(_outcomeLabel(v))))
-                .toList(),
-            onChanged: (v) => setState(() {
-                  _outcome = v!;
-                  if (v == FinalOutcome.abandoned ||
-                      v == FinalOutcome.regularized) _grade.clear();
-                })),
+        _fieldLabel(
+            'Resultado final *',
+            DropdownButtonFormField(
+                value: _outcome,
+                decoration: const InputDecoration(),
+                items: FinalOutcome.values
+                    .map((v) => DropdownMenuItem(
+                        value: v, child: Text(_outcomeLabel(v))))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                      _outcome = v!;
+                      if (v == FinalOutcome.abandoned ||
+                          v == FinalOutcome.regularized) _grade.clear();
+                    }))),
         const SizedBox(height: 12),
         if (_outcome != FinalOutcome.abandoned &&
             _outcome != FinalOutcome.regularized)
-          TextFormField(
-              controller: _grade,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Nota final')),
+          _fieldLabel(
+              'Nota final',
+              TextFormField(
+                  controller: _grade,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration())),
         const SizedBox(height: 12),
         ListTile(
             contentPadding: EdgeInsets.zero,
@@ -363,107 +441,131 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
                       initialDate: _approvedAt ?? DateTime.now());
                   if (d != null) setState(() => _approvedAt = d);
                 })),
-        TextFormField(
-            controller: _notes,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Observaciones')),
+        _fieldLabel(
+            'Observaciones',
+            TextFormField(
+                controller: _notes,
+                maxLines: 3,
+                decoration: const InputDecoration())),
         const SizedBox(height: 12),
         _advanced()
       ]);
   Widget _basic(List<AcademicYear> years) => Column(children: [
-        TextFormField(
-            controller: _name,
-            decoration: const InputDecoration(labelText: 'Nombre *'),
-            validator: (v) {
-              final n = v?.trim() ?? '';
-              if (n.length < 2 || n.length > 100)
-                return 'Ingresá entre 2 y 100 caracteres.';
-              return null;
-            }),
+        _fieldLabel(
+            'Nombre *',
+            TextFormField(
+                controller: _name,
+                decoration:
+                    const InputDecoration(hintText: 'Ej.: Redes de Datos'),
+                validator: (v) {
+                  final n = v?.trim() ?? '';
+                  if (n.length < 2 || n.length > 100)
+                    return 'Ingresá entre 2 y 100 caracteres.';
+                  return null;
+                })),
         const SizedBox(height: 12),
-        TextFormField(
-            controller: _short,
-            decoration: const InputDecoration(labelText: 'Nombre corto'),
-            validator: (v) =>
-                (v?.trim().length ?? 0) > 15 ? 'Máximo 15 caracteres.' : null),
+        _fieldLabel(
+            'Nombre corto',
+            TextFormField(
+                controller: _short,
+                decoration: const InputDecoration(hintText: 'Ej.: Redes'),
+                validator: (v) => (v?.trim().length ?? 0) > 15
+                    ? 'Máximo 15 caracteres.'
+                    : null)),
         const SizedBox(height: 12),
-        TextFormField(
-            controller: _code,
-            decoration: const InputDecoration(labelText: 'Código')),
+        _fieldLabel(
+            'Código',
+            TextFormField(
+                controller: _code, decoration: const InputDecoration())),
         const SizedBox(height: 12),
-        TextFormField(
-            controller: _commission,
-            decoration: const InputDecoration(labelText: 'Comisión')),
+        _fieldLabel(
+            'Comisión',
+            TextFormField(
+                controller: _commission,
+                decoration: const InputDecoration(hintText: 'Ej.: 4K3'))),
         const SizedBox(height: 12),
-        Row(children: [
-          Expanded(
-              child: DropdownButtonFormField<String>(
-                  value: years.any((y) => y.id == _yearId) ? _yearId : null,
-                  decoration:
-                      const InputDecoration(labelText: 'Año académico *'),
-                  items: years
-                      .map((y) => DropdownMenuItem(
-                          value: y.id,
-                          child: Text(
-                              '${y.year}${y.isCurrent ? ' · Actual' : ''}')))
-                      .toList(),
-                  onChanged: (v) => setState(() => _yearId = v))),
-          const SizedBox(width: 8),
-          TextButton.icon(
-              onPressed: _createYear,
-              icon: const Icon(Icons.add),
-              label: const Text('Crear año'))
-        ])
+        _fieldLabel(
+            'Año académico *',
+            DropdownButtonFormField<String>(
+                isExpanded: true,
+                value: years.any((y) => y.id == _yearId) ? _yearId : null,
+                decoration: const InputDecoration(),
+                items: years
+                    .map((y) => DropdownMenuItem(
+                        value: y.id,
+                        child:
+                            Text('${y.year}${y.isCurrent ? ' · Actual' : ''}')))
+                    .toList(),
+                onChanged: (v) => setState(() => _yearId = v))),
+        Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+                onPressed: _createYear,
+                icon: const Icon(Icons.add),
+                label: const Text('Crear año')))
       ]);
   Widget _typeDuration() => Column(children: [
-        DropdownButtonFormField(
-            value: _type,
-            decoration: const InputDecoration(labelText: 'Tipo'),
-            items: const [
-              DropdownMenuItem(
-                  value: SubjectType.mandatory, child: Text('Obligatoria')),
-              DropdownMenuItem(
-                  value: SubjectType.elective, child: Text('Electiva'))
-            ],
-            onChanged: (v) => setState(() {
-                  _type = v!;
-                  if (v == SubjectType.mandatory) _points.clear();
-                })),
+        _fieldLabel(
+            'Tipo',
+            DropdownButtonFormField(
+                isExpanded: true,
+                value: _type,
+                decoration: const InputDecoration(),
+                items: const [
+                  DropdownMenuItem(
+                      value: SubjectType.mandatory, child: Text('Obligatoria')),
+                  DropdownMenuItem(
+                      value: SubjectType.elective, child: Text('Electiva'))
+                ],
+                onChanged: (v) => setState(() {
+                      _type = v!;
+                      if (v == SubjectType.mandatory) _points.clear();
+                    }))),
         if (_type == SubjectType.elective) ...[
           const SizedBox(height: 12),
-          TextFormField(
-              controller: _points,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration:
-                  const InputDecoration(labelText: 'Puntos electivos *'))
+          _fieldLabel(
+              'Puntos electivos *',
+              TextFormField(
+                  controller: _points,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration()))
         ],
         const SizedBox(height: 12),
-        DropdownButtonFormField(
-            value: _duration,
-            decoration: const InputDecoration(labelText: 'Duración'),
-            items: const [
-              DropdownMenuItem(
-                  value: SubjectDuration.annual, child: Text('Anual')),
-              DropdownMenuItem(
-                  value: SubjectDuration.semester, child: Text('Cuatrimestral'))
-            ],
-            onChanged: (v) => setState(() {
-                  _duration = v!;
-                  if (v == SubjectDuration.annual) _semester = null;
-                })),
+        _fieldLabel(
+            'Duración',
+            DropdownButtonFormField(
+                isExpanded: true,
+                value: _duration,
+                decoration: const InputDecoration(),
+                items: const [
+                  DropdownMenuItem(
+                      value: SubjectDuration.annual, child: Text('Anual')),
+                  DropdownMenuItem(
+                      value: SubjectDuration.semester,
+                      child: Text('Cuatrimestral'))
+                ],
+                onChanged: (v) => setState(() {
+                      _duration = v!;
+                      if (v == SubjectDuration.annual) _semester = null;
+                    }))),
         if (_duration == SubjectDuration.semester) ...[
           const SizedBox(height: 12),
-          DropdownButtonFormField(
-              value: _semester,
-              decoration: const InputDecoration(labelText: 'Cuatrimestre *'),
-              items: const [
-                DropdownMenuItem(
-                    value: Semester.first, child: Text('Primer cuatrimestre')),
-                DropdownMenuItem(
-                    value: Semester.second, child: Text('Segundo cuatrimestre'))
-              ],
-              onChanged: (v) => setState(() => _semester = v))
+          _fieldLabel(
+              'Cuatrimestre *',
+              DropdownButtonFormField(
+                  isExpanded: true,
+                  value: _semester,
+                  decoration: const InputDecoration(),
+                  items: const [
+                    DropdownMenuItem(
+                        value: Semester.first,
+                        child: Text('Primer cuatrimestre')),
+                    DropdownMenuItem(
+                        value: Semester.second,
+                        child: Text('Segundo cuatrimestre'))
+                  ],
+                  onChanged: (v) => setState(() => _semester = v)))
         ],
         const SizedBox(height: 12),
         _advanced()
@@ -474,41 +576,54 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
           children: [
             Row(children: [
               Expanded(
-                  child: TextFormField(
-                      controller: _min,
-                      keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Nota mínima'))),
+                  child: _fieldLabel(
+                      'Nota mínima',
+                      TextFormField(
+                          controller: _min,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration()))),
               const SizedBox(width: 12),
               Expanded(
-                  child: TextFormField(
-                      controller: _max,
-                      keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Nota máxima')))
+                  child: _fieldLabel(
+                      'Nota máxima',
+                      TextFormField(
+                          controller: _max,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration())))
             ]),
             if (_mode == TrackingMode.tracked) ...[
               const SizedBox(height: 12),
-              DropdownButtonFormField<RecoveryPolicy>(
-                  value: _recoveryPolicy,
-                  decoration: const InputDecoration(
-                      labelText: 'Política de recuperatorios'),
-                  items: RecoveryPolicy.values
-                      .map((policy) => DropdownMenuItem(
-                          value: policy,
-                          child: Text(switch (policy) {
-                            RecoveryPolicy.replaceGrade =>
-                              'El recuperatorio reemplaza la nota original',
-                            RecoveryPolicy.highestGrade =>
-                              'Se toma la mejor nota',
-                            RecoveryPolicy.approvalOnly =>
-                              'El recuperatorio solo recupera la aprobación',
-                          })))
-                      .toList(),
-                  onChanged: (value) =>
-                      setState(() => _recoveryPolicy = value!)),
+              _fieldLabel(
+                  'Política de recuperatorios',
+                  DropdownButtonFormField<RecoveryPolicy>(
+                      isExpanded: true,
+                      value: _recoveryPolicy,
+                      decoration: const InputDecoration(),
+                      items: RecoveryPolicy.values
+                          .map((policy) => DropdownMenuItem(
+                              value: policy,
+                              child: Text(switch (policy) {
+                                RecoveryPolicy.replaceGrade =>
+                                  'El recuperatorio reemplaza la nota original',
+                                RecoveryPolicy.highestGrade =>
+                                  'Se toma la mejor nota',
+                                RecoveryPolicy.approvalOnly =>
+                                  'El recuperatorio solo recupera la aprobación',
+                              })))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _recoveryPolicy = value!))),
             ]
           ]);
+
+  Widget _fieldLabel(String text, Widget field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(text, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 6),
+          field,
+        ],
+      );
   Widget _review(List<AcademicYear> years) {
     final year = years.where((y) => y.id == _yearId).firstOrNull;
     return Card(

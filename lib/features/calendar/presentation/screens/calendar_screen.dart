@@ -61,27 +61,30 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     DateTime(month.year, month.month, 1).weekday - 1;
                 final days = DateTime(month.year, month.month + 1, 0).day;
                 final rows = ((firstOffset + days) / 7).ceil();
-                return SizedBox(
-                    height: constraints.maxWidth < 600 ? rows * 58 : rows * 82,
-                    child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 7),
-                        itemCount: rows * 7,
-                        itemBuilder: (_, index) {
-                          final day = index - firstOffset + 1;
-                          if (day < 1 || day > days) return const SizedBox();
-                          final date = DateTime(month.year, month.month, day);
-                          final hasItems =
-                              monthly.any((e) => _sameDay(e.date, date));
-                          return Card(
-                              margin: const EdgeInsets.all(2),
-                              child: InkWell(
-                                  onTap: () => _showDay(date, evaluations),
-                                  child: Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Column(children: [
+                return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 7,
+                        childAspectRatio:
+                            constraints.maxWidth < 600 ? .82 : 1.15),
+                    itemCount: rows * 7,
+                    itemBuilder: (_, index) {
+                      final day = index - firstOffset + 1;
+                      if (day < 1 || day > days) return const SizedBox();
+                      final date = DateTime(month.year, month.month, day);
+                      final hasItems =
+                          monthly.any((e) => _sameDay(e.date, date));
+                      return Card(
+                          margin: const EdgeInsets.all(2),
+                          child: InkWell(
+                              onTap: () => _showDay(date, evaluations),
+                              child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
                                         Text('$day'),
                                         if (hasItems)
                                           Container(
@@ -95,7 +98,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                                       .primary,
                                                   shape: BoxShape.circle))
                                       ]))));
-                        }));
+                    });
               }),
             ]);
           }));

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/evaluation.dart';
@@ -138,8 +139,11 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
         : ref.watch(evaluationProvider(widget.evaluationId!));
     return subjectsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const ContentPage(
-          title: 'Evaluación', child: Text('No pudimos cargar tus materias.')),
+      error: (_, __) => ContentPage(
+          title: 'Evaluación',
+          showBackButton: true,
+          backFallback: () => context.go(AppRoutes.calendar),
+          child: const Text('No pudimos cargar tus materias.')),
       data: (allSubjects) {
         final subjects = allSubjects
             .where((s) => s.trackingMode == TrackingMode.tracked)
@@ -147,9 +151,11 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
         if (existing?.isLoading == true)
           return const Center(child: CircularProgressIndicator());
         if (existing?.hasError == true)
-          return const ContentPage(
+          return ContentPage(
               title: 'Evaluación',
-              child: Text('No pudimos cargar la evaluación.'));
+              showBackButton: true,
+              backFallback: () => context.go(AppRoutes.calendar),
+              child: const Text('No pudimos cargar la evaluación.'));
         if (existing?.valueOrNull case final evaluation?) _load(evaluation);
         if (!_initialized && widget.evaluationId == null) {
           _initialized = true;
@@ -187,6 +193,8 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
           title: widget.evaluationId == null
               ? 'Nueva evaluación'
               : 'Editar evaluación',
+          showBackButton: true,
+          backFallback: () => context.go(AppRoutes.calendar),
           child: Form(
             key: _form,
             child: Column(
