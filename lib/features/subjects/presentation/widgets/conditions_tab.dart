@@ -27,7 +27,7 @@ class ConditionsTab extends ConsumerWidget {
         error: (_, __) =>
             const Text('No pudimos recalcular la condición académica.'),
         data: (result) =>
-            ListView(padding: const EdgeInsets.only(top: 16), children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Card(
                   child: ListTile(
                       leading: Icon(_conditionIcon(result.condition)),

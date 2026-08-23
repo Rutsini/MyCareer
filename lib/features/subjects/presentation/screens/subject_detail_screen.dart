@@ -24,6 +24,7 @@ class SubjectDetailScreen extends ConsumerStatefulWidget {
 
 class _State extends ConsumerState<SubjectDetailScreen> {
   _Filter filter = _Filter.all;
+  int _selectedTab = 0;
   @override
   Widget build(BuildContext context) =>
       ref.watch(subjectProvider(widget.subjectId)).when(
@@ -48,6 +49,7 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                   child: _summaryCard(subject, const []));
             return DefaultTabController(
                 length: 3,
+                initialIndex: _selectedTab,
                 child: ContentPage(
                     title: subject.name,
                     showBackButton: true,
@@ -69,22 +71,26 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                                 icon: const Icon(Icons.add),
                                 label: const Text('Evaluación'))
                           ]),
-                      const TabBar(tabs: [
-                        Tab(text: 'Resumen'),
-                        Tab(text: 'Evaluaciones'),
-                        Tab(text: 'Condiciones')
-                      ]),
-                      SizedBox(
-                          height: 560,
-                          child: TabBarView(children: [
-                            ref.watch(subjectEvaluationsProvider(subject.id)).when(
+                      TabBar(
+                        onTap: (index) => setState(() => _selectedTab = index),
+                        tabs: const [
+                          Tab(text: 'Resumen'),
+                          Tab(text: 'Evaluaciones'),
+                          Tab(text: 'Condiciones')
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      switch (_selectedTab) {
+                        0 => ref
+                            .watch(subjectEvaluationsProvider(subject.id))
+                            .when(
                                 loading: () => const LinearProgressIndicator(),
                                 error: (_, __) => const Text(
                                     'No pudimos cargar tus evaluaciones.'),
                                 data: (items) => _summaryCard(subject, items)),
-                            _evaluationList(subject),
-                            ConditionsTab(subject: subject),
-                          ]))
+                        1 => _evaluationList(subject),
+                        _ => ConditionsTab(subject: subject),
+                      },
                     ])));
           });
 
@@ -147,38 +153,40 @@ class _State extends ConsumerState<SubjectDetailScreen> {
               ..sort((a, b) => a.date.compareTo(b.date));
             final completed = items.where((e) => !upcoming.contains(e)).toList()
               ..sort((a, b) => b.date.compareTo(a.date));
-            return ListView(padding: const EdgeInsets.only(top: 16), children: [
-              SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                      children: _Filter.values
-                          .map((v) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                  label: Text(_filterLabel(v)),
-                                  selected: filter == v,
-                                  onSelected: (_) =>
-                                      setState(() => filter = v))))
-                          .toList())),
-              if (upcoming.isNotEmpty) ...[
-                const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Próximas')),
-                ...upcoming.map(_card)
-              ],
-              if (completed.isNotEmpty) ...[
-                const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Realizadas')),
-                ...completed.map(_card)
-              ],
-              if (items.isEmpty)
-                const Card(
-                    child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text(
-                            'Todavía no hay evaluaciones con este filtro.')))
-            ]);
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                          children: _Filter.values
+                              .map((v) => Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ChoiceChip(
+                                      label: Text(_filterLabel(v)),
+                                      selected: filter == v,
+                                      onSelected: (_) =>
+                                          setState(() => filter = v))))
+                              .toList())),
+                  if (upcoming.isNotEmpty) ...[
+                    const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text('Próximas')),
+                    ...upcoming.map(_card)
+                  ],
+                  if (completed.isNotEmpty) ...[
+                    const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text('Realizadas')),
+                    ...completed.map(_card)
+                  ],
+                  if (items.isEmpty)
+                    const Card(
+                        child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                                'Todavía no hay evaluaciones con este filtro.')))
+                ]);
           });
 
   Widget _card(Evaluation e) => Card(

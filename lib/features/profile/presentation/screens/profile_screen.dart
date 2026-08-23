@@ -26,7 +26,7 @@ class ProfileScreen extends ConsumerWidget {
                     children: [
                       Card(
                           child: Padding(
-                              padding: const EdgeInsets.all(24),
+                              padding: const EdgeInsets.all(18),
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -34,11 +34,10 @@ class ProfileScreen extends ConsumerWidget {
                                         style: Theme.of(context)
                                             .textTheme
                                             .titleLarge),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                        'Nombre: ${p.displayName ?? 'Sin nombre'}'),
                                     const SizedBox(height: 8),
-                                    SelectableText('Email: ${p.email}')
+                                    Text(p.displayName ?? 'Sin nombre'),
+                                    const SizedBox(height: 4),
+                                    SelectableText(p.email)
                                   ]))),
                       const SizedBox(height: 16),
                       _CareerForm(profile: p),
@@ -58,10 +57,17 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-class _NotificationSettingsCard extends ConsumerWidget {
+class _NotificationSettingsCard extends ConsumerStatefulWidget {
   const _NotificationSettingsCard({required this.settings});
   final NotificationSettings settings;
 
+  @override
+  ConsumerState<_NotificationSettingsCard> createState() =>
+      _NotificationSettingsCardState();
+}
+
+class _NotificationSettingsCardState
+    extends ConsumerState<_NotificationSettingsCard> {
   static const choices = <int, String>{
     1440: '1 día antes',
     2880: '2 días antes',
@@ -76,107 +82,128 @@ class _NotificationSettingsCard extends ConsumerWidget {
       };
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final permission = ref.watch(notificationPermissionProvider);
     final controller = ref.read(profileControllerProvider.notifier);
     final loading = ref.watch(profileControllerProvider).isLoading;
+    final settings = widget.settings;
     final offsets = settings.defaultReminderOffsetsMinutes.toSet();
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('NOTIFICACIONES Y RECORDATORIOS',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
-          Text(
-              'Notificaciones: ${settings.enabled ? 'Activadas' : 'Desactivadas'}'),
-          Text('Permiso: ${_permissionLabel(permission)}'),
-          const SizedBox(height: 8),
-          Text(kIsWeb
-              ? 'En Web, los recordatorios funcionan mientras MyCareer esté abierto.'
-              : 'Android puede mostrar recordatorios aunque cierres MyCareer.'),
-          const Divider(height: 28),
-          Text('Recordatorios por defecto',
-              style: Theme.of(context).textTheme.titleSmall),
-          ...choices.entries.map((choice) => CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(choice.value),
-                value: offsets.contains(choice.key),
-                onChanged: loading
-                    ? null
-                    : (selected) {
-                        final next = {...offsets};
-                        selected == true
-                            ? next.add(choice.key)
-                            : next.remove(choice.key);
-                        controller.saveNotifications(settings.copyWith(
-                          defaultReminderOffsetsMinutes: next.toList()..sort(),
-                        ));
-                      },
-              )),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Hora para evaluaciones sin horario'),
-            subtitle: Text(
-              '${settings.allDayReminderHour.toString().padLeft(2, '0')}:'
-              '${settings.allDayReminderMinute.toString().padLeft(2, '0')}',
-            ),
-            trailing: const Icon(Icons.schedule),
-            onTap: loading
-                ? null
-                : () async {
-                    final value = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay(
-                        hour: settings.allDayReminderHour,
-                        minute: settings.allDayReminderMinute,
-                      ),
-                    );
-                    if (value != null) {
-                      await controller.saveNotifications(settings.copyWith(
-                        allDayReminderHour: value.hour,
-                        allDayReminderMinute: value.minute,
-                      ));
-                    }
-                  },
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: loading
-                ? null
-                : () async {
-                    if (settings.enabled) {
-                      await controller.saveNotifications(
-                        settings.copyWith(enabled: false),
-                      );
-                    } else {
-                      await controller.enableNotifications(settings);
-                    }
-                    ref.read(notificationPermissionProvider.notifier).state =
-                        await ref
-                            .read(notificationCoordinatorProvider)
-                            .permissionStatus();
-                  },
-            icon: Icon(settings.enabled
-                ? Icons.notifications_off_outlined
-                : Icons.notifications_active_outlined),
-            label: Text(settings.enabled
-                ? 'Desactivar notificaciones'
-                : 'Activar notificaciones'),
-          ),
-          if (permission == NotificationPermissionState.granted) ...[
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        maintainState: true,
+        title: const Text('Notificaciones y recordatorios'),
+        subtitle: Text(_summary(settings, permission)),
+        childrenPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(
+                'Notificaciones: ${settings.enabled ? 'Activadas' : 'Desactivadas'}'),
+            Text('Permiso: ${_permissionLabel(permission)}'),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  ref.read(notificationCoordinatorProvider).showTest(),
-              icon: const Icon(Icons.notification_add_outlined),
-              label: const Text('Enviar notificación de prueba'),
+            Text(kIsWeb
+                ? 'En Web, los recordatorios funcionan mientras MyCareer esté abierto.'
+                : 'Android puede mostrar recordatorios aunque cierres MyCareer.'),
+            const Divider(height: 28),
+            Text('Recordatorios por defecto',
+                style: Theme.of(context).textTheme.titleSmall),
+            ...choices.entries.map((choice) => CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(choice.value),
+                  value: offsets.contains(choice.key),
+                  onChanged: loading
+                      ? null
+                      : (selected) {
+                          final next = {...offsets};
+                          selected == true
+                              ? next.add(choice.key)
+                              : next.remove(choice.key);
+                          controller.saveNotifications(settings.copyWith(
+                            defaultReminderOffsetsMinutes: next.toList()
+                              ..sort(),
+                          ));
+                        },
+                )),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Hora para evaluaciones sin horario'),
+              subtitle: Text(
+                '${settings.allDayReminderHour.toString().padLeft(2, '0')}:'
+                '${settings.allDayReminderMinute.toString().padLeft(2, '0')}',
+              ),
+              trailing: const Icon(Icons.schedule),
+              onTap: loading
+                  ? null
+                  : () async {
+                      final value = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(
+                          hour: settings.allDayReminderHour,
+                          minute: settings.allDayReminderMinute,
+                        ),
+                      );
+                      if (value != null) {
+                        await controller.saveNotifications(settings.copyWith(
+                          allDayReminderHour: value.hour,
+                          allDayReminderMinute: value.minute,
+                        ));
+                      }
+                    },
             ),
-          ],
-        ]),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: loading
+                  ? null
+                  : () async {
+                      if (settings.enabled) {
+                        await controller.saveNotifications(
+                          settings.copyWith(enabled: false),
+                        );
+                      } else {
+                        await controller.enableNotifications(settings);
+                      }
+                      ref.read(notificationPermissionProvider.notifier).state =
+                          await ref
+                              .read(notificationCoordinatorProvider)
+                              .permissionStatus();
+                    },
+              icon: Icon(settings.enabled
+                  ? Icons.notifications_off_outlined
+                  : Icons.notifications_active_outlined),
+              label: Text(settings.enabled
+                  ? 'Desactivar notificaciones'
+                  : 'Activar notificaciones'),
+            ),
+            if (permission == NotificationPermissionState.granted) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    ref.read(notificationCoordinatorProvider).showTest(),
+                icon: const Icon(Icons.notification_add_outlined),
+                label: const Text('Enviar notificación de prueba'),
+              ),
+            ],
+          ]),
+        ],
       ),
     );
+  }
+
+  String _summary(
+      NotificationSettings settings, NotificationPermissionState permission) {
+    if (!settings.enabled) {
+      return permission == NotificationPermissionState.denied
+          ? 'Desactivadas · Permiso denegado'
+          : 'Desactivadas';
+    }
+    final reminders = settings.defaultReminderOffsetsMinutes
+        .map((offset) => choices[offset])
+        .whereType<String>()
+        .join(', ');
+    final enabled = reminders.isEmpty ? 'Activadas' : 'Activadas · $reminders';
+    return permission == NotificationPermissionState.denied
+        ? '$enabled · Permiso denegado'
+        : enabled;
   }
 }
 
@@ -189,6 +216,8 @@ class _CareerForm extends ConsumerStatefulWidget {
 
 class _CareerFormState extends ConsumerState<_CareerForm> {
   late final TextEditingController name, current, total, points;
+  late final ExpansibleController _expansionController;
+  late bool _expanded;
   @override
   void initState() {
     super.initState();
@@ -197,6 +226,8 @@ class _CareerFormState extends ConsumerState<_CareerForm> {
     current = TextEditingController(text: c.currentYear?.toString());
     total = TextEditingController(text: c.totalSubjects?.toString());
     points = TextEditingController(text: c.requiredElectivePoints?.toString());
+    _expansionController = ExpansibleController();
+    _expanded = c.name?.trim().isEmpty ?? true;
   }
 
   @override
@@ -214,74 +245,92 @@ class _CareerFormState extends ConsumerState<_CareerForm> {
   Widget build(BuildContext context) {
     final state = ref.watch(profileControllerProvider);
     return Card(
-        child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Configuración académica',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Estos datos corresponden a tu carrera completa, salvo el año actual.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                      controller: name,
-                      decoration: const InputDecoration(labelText: 'Carrera')),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+            controller: _expansionController,
+            initiallyExpanded: _expanded,
+            maintainState: true,
+            onExpansionChanged: (expanded) => _expanded = expanded,
+            title: const Text('Configuración académica'),
+            subtitle: _careerSummary(context),
+            childrenPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const SizedBox(height: 6),
+                Text(
+                  'Estos datos corresponden a tu carrera completa, salvo el año actual.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: 'Carrera')),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: current,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: 'Año de carrera actual',
+                        helperText: 'Ej.: 4')),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: total,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: 'Total de materias de la carrera',
+                        helperText: 'Total requerido por tu plan de estudios')),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: points,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText:
+                            'Puntos electivos requeridos para completar la carrera',
+                        helperText: 'Total requerido por tu plan de estudios')),
+                if (state.hasError) ...[
                   const SizedBox(height: 12),
-                  TextField(
-                      controller: current,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: 'Año de carrera actual',
-                          helperText: 'Ej.: 4')),
-                  const SizedBox(height: 12),
-                  TextField(
-                      controller: total,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: 'Total de materias de la carrera',
-                          helperText:
-                              'Total requerido por tu plan de estudios')),
-                  const SizedBox(height: 12),
-                  TextField(
-                      controller: points,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                          labelText:
-                              'Puntos electivos requeridos para completar la carrera',
-                          helperText:
-                              'Total requerido por tu plan de estudios')),
-                  if (state.hasError) ...[
-                    const SizedBox(height: 12),
-                    Text((state.error as AppException).message,
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error))
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                      onPressed: state.isLoading
-                          ? null
-                          : () async {
-                              final career = CareerSettings(
-                                  name: name.text.trim().isEmpty
-                                      ? null
-                                      : name.text.trim(),
-                                  currentYear: _int(current),
-                                  totalSubjects: _int(total),
-                                  requiredElectivePoints: _double(points));
-                              final ok = await ref
-                                  .read(profileControllerProvider.notifier)
-                                  .save(career);
-                              if (ok && mounted)
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Perfil guardado.')));
-                            },
-                      child: const Text('Guardar'))
-                ])));
+                  Text((state.error as AppException).message,
+                      style:
+                          TextStyle(color: Theme.of(context).colorScheme.error))
+                ],
+                const SizedBox(height: 20),
+                FilledButton(
+                    onPressed: state.isLoading
+                        ? null
+                        : () async {
+                            final career = CareerSettings(
+                                name: name.text.trim().isEmpty
+                                    ? null
+                                    : name.text.trim(),
+                                currentYear: _int(current),
+                                totalSubjects: _int(total),
+                                requiredElectivePoints: _double(points));
+                            final ok = await ref
+                                .read(profileControllerProvider.notifier)
+                                .save(career);
+                            if (ok && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Perfil guardado.')));
+                              setState(() => _expanded = false);
+                              _expansionController.collapse();
+                            }
+                          },
+                    child: const Text('Guardar'))
+              ])
+            ]));
+  }
+
+  Widget _careerSummary(BuildContext context) {
+    final lines = <String>[
+      if (name.text.trim().isNotEmpty) name.text.trim(),
+      if (_int(current) case final year?) 'Año de carrera: $year',
+      if (_int(total) case final count?) 'Total de materias: $count',
+      if (_double(points) case final required?)
+        'Electivos requeridos: ${required == required.roundToDouble() ? required.toInt() : required}',
+    ];
+    if (lines.isEmpty) lines.add('Completá los datos de tu carrera');
+    return Text(lines.join('\n'), style: Theme.of(context).textTheme.bodySmall);
   }
 }

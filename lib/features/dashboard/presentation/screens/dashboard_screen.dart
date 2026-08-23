@@ -69,14 +69,16 @@ class _Dashboard extends StatelessWidget {
           : 'Resumen académico · ${data.selectedYear!.year}'),
       if (career?.trim().isNotEmpty == true) Text(career!),
       const SizedBox(height: 16),
-      if (!data.hasAcademicYears)
+      if (!data.hasAcademicYears) ...[
         _Empty(
           'Empezá configurando tu año académico.',
           icon: Icons.school_outlined,
           action: 'Configurar año',
           onAction: () => context.go(AppRoutes.profile),
-        )
-      else ...[
+        ),
+        const SizedBox(height: 8),
+        const _QuickActions(enabled: false),
+      ] else ...[
         Align(
           alignment: Alignment.centerLeft,
           child: DropdownButton<String>(
@@ -94,6 +96,8 @@ class _Dashboard extends StatelessWidget {
             onChanged: onYear,
           ),
         ),
+        const SizedBox(height: 8),
+        _QuickActions(enabled: data.selectedYear != null),
         if (!data.hasCurrentYear)
           Card(
             child: ListTile(
@@ -153,35 +157,36 @@ class _Dashboard extends StatelessWidget {
           _Summaries(data),
         ],
       ],
-      const _Heading('Accesos rápidos'),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        FilledButton.icon(
-          onPressed: data.selectedYear == null
-              ? null
-              : () => context.go(AppRoutes.newSubject),
-          icon: const Icon(Icons.add),
-          label: const Text('Nueva materia'),
-        ),
-        OutlinedButton.icon(
-          onPressed: data.selectedYear == null
-              ? null
-              : () => context.go(AppRoutes.newEvaluation),
-          icon: const Icon(Icons.post_add_outlined),
-          label: const Text('Nueva evaluación'),
-        ),
-        OutlinedButton.icon(
-          onPressed: () => context.go(AppRoutes.calendar),
-          icon: const Icon(Icons.calendar_month_outlined),
-          label: const Text('Calendario'),
-        ),
-        OutlinedButton.icon(
-          onPressed: () => context.go(AppRoutes.progress),
-          icon: const Icon(Icons.insights_outlined),
-          label: const Text('Progreso'),
-        ),
-      ]),
     ]);
   }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.enabled});
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        key: const Key('quick-actions'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _Heading('Acciones rápidas'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            FilledButton.icon(
+              onPressed:
+                  enabled ? () => context.go(AppRoutes.newSubject) : null,
+              icon: const Icon(Icons.add),
+              label: const Text('Nueva materia'),
+            ),
+            OutlinedButton.icon(
+              onPressed:
+                  enabled ? () => context.go(AppRoutes.newEvaluation) : null,
+              icon: const Icon(Icons.post_add_outlined),
+              label: const Text('Nueva evaluación'),
+            ),
+          ]),
+        ],
+      );
 }
 
 class _Metric extends StatelessWidget {
@@ -200,11 +205,15 @@ class _Metric extends StatelessWidget {
             child: Row(children: [
               Icon(icon),
               const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('$value',
-                    style: Theme.of(context).textTheme.headlineSmall),
-                Text(label),
-              ]),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$value',
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      Text(label),
+                    ]),
+              ),
             ]),
           ),
         ),
