@@ -4,12 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/errors/app_exception.dart';
+import '../../../../core/formatters/academic_rule_type_formatter.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/academic_year.dart';
+import '../../../../domain/entities/academic_rule.dart';
 import '../../../../domain/entities/subject.dart';
 import '../../../profile/application/profile_controller.dart';
+import '../../../evaluations/application/evaluation_controller.dart';
 import '../../application/academic_year_controller.dart';
 import '../../application/subject_controller.dart';
+import '../widgets/academic_rule_editor.dart';
+import '../widgets/academic_rule_type_help_button.dart';
 
 class SubjectFormScreen extends ConsumerStatefulWidget {
   const SubjectFormScreen({this.mode, this.subjectId, super.key});
@@ -40,6 +45,8 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
   int _step = 0;
   bool _initialized = false;
   bool _submitting = false;
+  List<AcademicRule> _promotionRules = [];
+  List<AcademicRule> _regularityRules = [];
   TrackingMode get _mode =>
       widget.mode ??
       ref.read(subjectProvider(widget.subjectId!)).valueOrNull?.trackingMode ??
@@ -81,6 +88,8 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
     _outcome = s.finalOutcome ?? FinalOutcome.approved;
     _recoveryPolicy = s.recoveryPolicy;
     _approvedAt = s.approvedAt;
+    _promotionRules = [...s.promotionRules];
+    _regularityRules = [...s.regularityRules];
   }
 
   void _defaults(List<AcademicYear> years) {
@@ -130,6 +139,8 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         gradeMax: _number(_max.text) ?? 10,
         recoveryPolicy: _recoveryPolicy,
         notes: _optional(_notes.text),
+        promotionRules: List.unmodifiable(_promotionRules),
+        regularityRules: List.unmodifiable(_regularityRules),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now());
   }
@@ -182,6 +193,8 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
           _semester = null;
           _outcome = FinalOutcome.approved;
           _approvedAt = null;
+          _promotionRules = [];
+          _regularityRules = [];
         });
       } else {
         context.go(AppRoutes.subject(id));
@@ -192,31 +205,43 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
   }
 
   Future<void> _createYear() async {
-    final controller = TextEditingController();
-    final value = await showDialog<int>(
+    final controller = TextEditingController(text: '${DateTime.now().year}');
+    var markCurrent = true;
+    final result = await showDialog<(int?, bool)>(
         context: context,
-        builder: (c) => AlertDialog(
-                title: const Text('Crear año académico'),
-                content: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Align(
-                      alignment: Alignment.centerLeft, child: Text('Año')),
-                  const SizedBox(height: 6),
-                  TextField(
-                      controller: controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(hintText: '2026'))
-                ]),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(c),
-                      child: const Text('Cancelar')),
-                  FilledButton(
-                      onPressed: () =>
-                          Navigator.pop(c, int.tryParse(controller.text)),
-                      child: const Text('Crear'))
-                ]));
+        builder: (c) => StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+                    title: const Text('Crear año académico'),
+                    content: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Align(
+                          alignment: Alignment.centerLeft, child: Text('Año')),
+                      const SizedBox(height: 6),
+                      TextField(
+                          controller: controller,
+                          autofocus: true,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration()),
+                      const SizedBox(height: 12),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: markCurrent,
+                        onChanged: (value) =>
+                            setDialogState(() => markCurrent = value ?? false),
+                        title: const Text('Marcar como año académico actual'),
+                      )
+                    ]),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(c),
+                          child: const Text('Cancelar')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(
+                              c, (int.tryParse(controller.text), markCurrent)),
+                          child: const Text('Crear'))
+                    ])));
     controller.dispose();
+    if (result == null) return;
+    final (value, selectedCurrent) = result;
     if (value == null) return;
     if (value < 1900 || value > 2200) {
       if (mounted)
@@ -224,8 +249,9 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
             const SnackBar(content: Text('Ingresá un año válido.')));
       return;
     }
-    final ok =
-        await ref.read(academicYearControllerProvider.notifier).create(value);
+    final ok = await ref
+        .read(academicYearControllerProvider.notifier)
+        .create(value, current: selectedCurrent);
     if (ok && mounted) setState(() => _yearId = '$value');
   }
 
@@ -381,15 +407,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
             Step(
                 title: const Text('Condiciones académicas'),
                 isActive: _step >= 2,
-                content: _stepContent(
-                    const ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.info_outline),
-                        title: Text(
-                            'La configuración de promoción y regularidad se incorporará en la próxima versión.'),
-                        subtitle: Text('Podrás editarla posteriormente.')),
-                    years,
-                    saving)),
+                content: _stepContent(_conditionsStep(), years, saving)),
             Step(
                 title: const Text('Revisión'),
                 isActive: _step >= 3,
@@ -502,7 +520,17 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
             child: TextButton.icon(
                 onPressed: _createYear,
                 icon: const Icon(Icons.add),
-                label: const Text('Crear año')))
+                label: const Text('Crear año'))),
+        if (years.where((y) => y.id == _yearId && !y.isCurrent).firstOrNull
+            case final selected?)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _markCurrent(selected),
+              icon: const Icon(Icons.event_available),
+              label: Text('Marcar ${selected.year} como año actual'),
+            ),
+          )
       ]);
   Widget _typeDuration() => Column(children: [
         _fieldLabel(
@@ -570,6 +598,153 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         const SizedBox(height: 12),
         _advanced()
       ]);
+
+  Future<void> _markCurrent(AcademicYear year) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('¿Usar ${year.year} como año académico actual?'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancelar')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Confirmar')),
+            ],
+          ),
+        ) ??
+        false;
+    if (confirmed) {
+      await ref
+          .read(academicYearControllerProvider.notifier)
+          .setCurrent(year.id);
+    }
+  }
+
+  Widget _conditionsStep() => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ruleSection('Condiciones de promoción', _promotionRules, true),
+          const SizedBox(height: 20),
+          _ruleSection('Condiciones de regularidad', _regularityRules, false),
+          if (widget.subjectId == null) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Las condiciones asociadas a una evaluación específica pueden configurarse después de crear la materia y cargar sus evaluaciones.',
+            ),
+          ],
+        ],
+      );
+
+  Widget _ruleSection(String title, List<AcademicRule> rules, bool promotion) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (rules.isEmpty) const Text('Sin condiciones'),
+          ...rules.map((rule) => Card(
+                child: ListTile(
+                  title: Row(children: [
+                    Expanded(child: Text(rule.name)),
+                    AcademicRuleTypeHelpButton(type: rule.type),
+                  ]),
+                  subtitle: Text(
+                      '${academicRuleTypeLabel(rule.type)}${_ruleValue(rule.config)}${rule.enabled ? '' : ' · Deshabilitada'}'),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (action) =>
+                        _ruleAction(promotion, rule, action),
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                      PopupMenuItem(
+                          value: 'toggle',
+                          child: Text(
+                              rule.enabled ? 'Deshabilitar' : 'Habilitar')),
+                      const PopupMenuItem(
+                          value: 'delete', child: Text('Eliminar')),
+                    ],
+                  ),
+                ),
+              )),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _editRule(promotion, null),
+            icon: const Icon(Icons.add),
+            label: const Text('Agregar condición'),
+          ),
+        ],
+      );
+
+  String _ruleValue(AcademicRuleConfig config) => switch (config) {
+        MinimumAverageConfig c =>
+          ' · Promedio requerido: ${_displayNumber(c.minimumAverage)}',
+        MinimumGradeByTypeConfig c =>
+          ' · Nota mínima: ${_displayNumber(c.minimumGrade)}',
+        MinimumApprovedPercentageConfig c =>
+          ' · Requerido: ${_displayNumber(c.minimumPercentage)} %',
+        MinimumApprovedCountConfig c => ' · Requerido: ${c.minimumCount}',
+        _ => '',
+      };
+
+  String _displayNumber(double value) => value
+      .toStringAsFixed(value == value.roundToDouble() ? 0 : 1)
+      .replaceAll('.', ',');
+
+  Future<void> _ruleAction(
+      bool promotion, AcademicRule rule, String action) async {
+    if (action == 'edit') return _editRule(promotion, rule);
+    setState(() {
+      final rules = promotion ? _promotionRules : _regularityRules;
+      final index = rules.indexWhere((item) => item.id == rule.id);
+      if (action == 'delete') rules.removeAt(index);
+      if (action == 'toggle')
+        rules[index] = rule.copyWith(enabled: !rule.enabled);
+    });
+  }
+
+  Future<void> _editRule(bool promotion, AcademicRule? existing) async {
+    final rules = promotion ? _promotionRules : _regularityRules;
+    final subject = _draftSubject();
+    final rule = await showAcademicRuleEditor(
+      context,
+      subject: subject,
+      evaluations: widget.subjectId == null
+          ? const []
+          : ref
+                  .read(subjectEvaluationsProvider(widget.subjectId!))
+                  .valueOrNull ??
+              const [],
+      order: existing?.order ?? rules.length,
+      existing: existing,
+      allowRequiredEvaluation: widget.subjectId != null,
+    );
+    if (rule == null || !mounted) return;
+    setState(() {
+      final index = rules.indexWhere((item) => item.id == rule.id);
+      if (index < 0)
+        rules.add(rule);
+      else
+        rules[index] = rule;
+    });
+  }
+
+  Subject _draftSubject() => Subject(
+        id: widget.subjectId ?? '',
+        academicYearId: _yearId ?? '',
+        academicYear: 0,
+        trackingMode: TrackingMode.tracked,
+        name: _name.text.trim().isEmpty ? 'Materia' : _name.text.trim(),
+        subjectType: _type,
+        duration: _duration,
+        semester: _duration == SubjectDuration.semester ? _semester : null,
+        courseStatus: CourseStatus.active,
+        currentCondition: AcademicCondition.noData,
+        gradeMin: _number(_min.text) ?? 0,
+        gradeMax: _number(_max.text) ?? 10,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
   Widget _advanced() => ExpansionTile(
           tilePadding: EdgeInsets.zero,
           title: const Text('Opciones avanzadas'),
@@ -638,7 +813,12 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
               Text(
                   'Tipo: ${_type == SubjectType.mandatory ? 'Obligatoria' : 'Electiva'}'),
               Text(
-                  'Duración: ${_duration == SubjectDuration.annual ? 'Anual' : _semester == Semester.first ? '1°C' : '2°C'}')
+                  'Duración: ${_duration == SubjectDuration.annual ? 'Anual' : _semester == Semester.first ? '1°C' : '2°C'}'),
+              const SizedBox(height: 8),
+              Text(
+                  'Promoción: ${_promotionRules.isEmpty ? 'Sin condiciones' : '${_promotionRules.length} ${_promotionRules.length == 1 ? 'condición' : 'condiciones'}'}'),
+              Text(
+                  'Regularidad: ${_regularityRules.isEmpty ? 'Sin condiciones' : '${_regularityRules.length} ${_regularityRules.length == 1 ? 'condición' : 'condiciones'}'}')
             ])));
   }
 

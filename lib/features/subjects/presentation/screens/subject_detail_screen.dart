@@ -188,7 +188,9 @@ class _State extends ConsumerState<SubjectDetailScreen> {
           subtitle: Text(
               '${_typeLabel(e.type)} · ${e.date.day}/${e.date.month}/${e.date.year}\n${_statusLabel(e.status)} · ${e.mandatory ? 'Obligatoria' : 'Opcional'} · Peso ${_n(e.weight)}'),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(e.grade == null ? '—' : '${_n(e.grade!)} / ${_n(e.maxGrade)}'),
+            Text(e.grade == null
+                ? 'Nota: —'
+                : 'Nota: ${_n(e.grade!)} / ${_n(e.maxGrade)}'),
             PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'edit') context.push(AppRoutes.editEvaluation(e.id));

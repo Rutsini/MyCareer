@@ -1,13 +1,15 @@
 // ignore_for_file: curly_braces_in_flow_control_structures, deprecated_member_use
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../domain/entities/academic_rule.dart';
 import '../../../../domain/entities/evaluation.dart';
 import '../../../../domain/entities/subject.dart';
 import '../../../../domain/services/academic_engine.dart';
+import '../../../../core/formatters/academic_rule_type_formatter.dart';
 import '../../../evaluations/application/evaluation_controller.dart';
 import '../../application/academic_controller.dart';
+import 'academic_rule_editor.dart';
+import 'academic_rule_type_help_button.dart';
 
 class ConditionsTab extends ConsumerWidget {
   const ConditionsTab({required this.subject, super.key});
@@ -78,10 +80,13 @@ class ConditionsTab extends ConsumerWidget {
                                 : result?.status == RuleResultStatus.unmet
                                     ? Icons.warning_amber
                                     : Icons.schedule),
-                        title: Text(rule.name),
-                        subtitle: Text(!rule.enabled
-                            ? 'Deshabilitada'
-                            : _resultText(result)),
+                        title: Row(children: [
+                          Expanded(child: Text(rule.name)),
+                          AcademicRuleTypeHelpButton(type: rule.type),
+                        ]),
+                        subtitle: Text(
+                            '${academicRuleTypeLabel(rule.type)}\n${!rule.enabled ? 'Deshabilitada' : _resultText(result)}'),
+                        isThreeLine: true,
                         trailing: PopupMenuButton<String>(
                             onSelected: (v) =>
                                 _action(context, ref, promotion, rule, v),
@@ -157,16 +162,14 @@ class ConditionsTab extends ConsumerWidget {
     final evaluations =
         ref.read(subjectEvaluationsProvider(subject.id)).valueOrNull ??
             const <Evaluation>[];
-    final rule = await showDialog<AcademicRule>(
-        context: context,
-        builder: (_) => _RuleDialog(
-            subject: subject,
-            evaluations: evaluations,
-            existing: existing,
-            order: existing?.order ??
-                (promotion
-                    ? subject.promotionRules.length
-                    : subject.regularityRules.length)));
+    final rule = await showAcademicRuleEditor(context,
+        subject: subject,
+        evaluations: evaluations,
+        existing: existing,
+        order: existing?.order ??
+            (promotion
+                ? subject.promotionRules.length
+                : subject.regularityRules.length));
     if (rule == null) return;
     final list = [
       ...(promotion ? subject.promotionRules : subject.regularityRules)
@@ -201,207 +204,4 @@ class ConditionsTab extends ConsumerWidget {
   String _number(double value) => value
       .toStringAsFixed(value == value.roundToDouble() ? 0 : 1)
       .replaceAll('.', ',');
-}
-
-class _RuleDialog extends StatefulWidget {
-  const _RuleDialog(
-      {required this.subject,
-      required this.evaluations,
-      required this.order,
-      this.existing});
-  final Subject subject;
-  final List<Evaluation> evaluations;
-  final int order;
-  final AcademicRule? existing;
-  @override
-  State<_RuleDialog> createState() => _RuleDialogState();
-}
-
-class _RuleDialogState extends State<_RuleDialog> {
-  late AcademicRuleType type;
-  late TextEditingController name, value, description;
-  bool enabled = true, mandatory = true;
-  EvaluationType evaluationType = EvaluationType.partial;
-  Set<EvaluationType> evaluationTypes = {};
-  String? evaluationId;
-  @override
-  void initState() {
-    super.initState();
-    final r = widget.existing;
-    type = r?.type ?? AcademicRuleType.minimumAverage;
-    name = TextEditingController(text: r?.name ?? _label(type));
-    description = TextEditingController(text: r?.description ?? '');
-    value = TextEditingController(text: _value(r?.config));
-    enabled = r?.enabled ?? true;
-    final c = r?.config;
-    if (c is MinimumGradeByTypeConfig) evaluationType = c.evaluationType;
-    if (c is RequiredEvaluationConfig) evaluationId = c.evaluationId;
-    if (c is MinimumApprovedCountConfig) mandatory = c.mandatoryOnly;
-    if (c is MinimumApprovedCountConfig)
-      evaluationTypes = {...c.evaluationTypes};
-    if (c is MinimumApprovedPercentageConfig) mandatory = c.mandatoryOnly;
-    if (c is MinimumApprovedPercentageConfig)
-      evaluationTypes = {...c.evaluationTypes};
-    if (c is AllEvaluationsApprovedConfig) mandatory = c.mandatoryOnly;
-    if (c is AllEvaluationsApprovedConfig)
-      evaluationTypes = {...c.evaluationTypes};
-  }
-
-  String _value(AcademicRuleConfig? c) => switch (c) {
-        MinimumAverageConfig c => '${c.minimumAverage}',
-        MinimumGradeByTypeConfig c => '${c.minimumGrade}',
-        MinimumApprovedPercentageConfig c => '${c.minimumPercentage}',
-        MinimumApprovedCountConfig c => '${c.minimumCount}',
-        _ => ''
-      };
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-          title: Text(widget.existing == null
-              ? 'Agregar condición'
-              : 'Editar condición'),
-          content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                DropdownButtonFormField(
-                    value: type,
-                    decoration:
-                        const InputDecoration(labelText: 'Tipo de regla'),
-                    items: AcademicRuleType.values
-                        .map((e) =>
-                            DropdownMenuItem(value: e, child: Text(_label(e))))
-                        .toList(),
-                    onChanged: (v) => setState(() {
-                          type = v!;
-                          name.text = _label(type);
-                          value.clear();
-                        })),
-                TextField(
-                    controller: name,
-                    decoration: const InputDecoration(labelText: 'Nombre')),
-                TextField(
-                    controller: description,
-                    decoration: const InputDecoration(
-                        labelText: 'Descripción opcional')),
-                if (type == AcademicRuleType.minimumAverage ||
-                    type == AcademicRuleType.minimumGradeByType ||
-                    type == AcademicRuleType.minimumApprovedPercentage ||
-                    type == AcademicRuleType.minimumApprovedCount)
-                  TextField(
-                      controller: value,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                          labelText: switch (type) {
-                        AcademicRuleType.minimumAverage => 'Promedio requerido',
-                        AcademicRuleType.minimumGradeByType => 'Nota mínima',
-                        AcademicRuleType.minimumApprovedPercentage =>
-                          'Porcentaje',
-                        _ => 'Cantidad'
-                      })),
-                if (type == AcademicRuleType.minimumGradeByType)
-                  DropdownButtonFormField(
-                      value: evaluationType,
-                      decoration: const InputDecoration(
-                          labelText: 'Tipo de evaluación'),
-                      items: EvaluationType.values
-                          .where((e) => e != EvaluationType.recovery)
-                          .map((e) =>
-                              DropdownMenuItem(value: e, child: Text(e.name)))
-                          .toList(),
-                      onChanged: (v) => setState(() => evaluationType = v!)),
-                if (type == AcademicRuleType.requiredEvaluation)
-                  DropdownButtonFormField<String>(
-                      value: evaluationId,
-                      decoration:
-                          const InputDecoration(labelText: 'Evaluación'),
-                      items: widget.evaluations
-                          .where((e) => !e.isRecovery)
-                          .map((e) => DropdownMenuItem(
-                              value: e.id, child: Text(e.name)))
-                          .toList(),
-                      onChanged: (v) => setState(() => evaluationId = v)),
-                if (type == AcademicRuleType.minimumApprovedPercentage ||
-                    type == AcademicRuleType.minimumApprovedCount ||
-                    type == AcademicRuleType.allEvaluationsApproved)
-                  SwitchListTile(
-                      value: mandatory,
-                      onChanged: (v) => setState(() => mandatory = v),
-                      title: const Text('Solo obligatorias')),
-                if (type == AcademicRuleType.minimumApprovedPercentage ||
-                    type == AcademicRuleType.minimumApprovedCount ||
-                    type == AcademicRuleType.allEvaluationsApproved) ...[
-                  const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Tipos (vacío = todos)')),
-                  Wrap(
-                      spacing: 6,
-                      children: EvaluationType.values
-                          .where((e) => e != EvaluationType.recovery)
-                          .map((e) => FilterChip(
-                              label: Text(e.name),
-                              selected: evaluationTypes.contains(e),
-                              onSelected: (selected) => setState(() => selected
-                                  ? evaluationTypes.add(e)
-                                  : evaluationTypes.remove(e))))
-                          .toList()),
-                ],
-                SwitchListTile(
-                    value: enabled,
-                    onChanged: (v) => setState(() => enabled = v),
-                    title: const Text('Habilitada'))
-              ]))),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar')),
-            FilledButton(onPressed: _save, child: const Text('Guardar'))
-          ]);
-  void _save() {
-    final number = double.tryParse(value.text.replaceAll(',', '.'));
-    final AcademicRuleConfig config = switch (type) {
-      AcademicRuleType.minimumAverage =>
-        MinimumAverageConfig(number ?? double.nan),
-      AcademicRuleType.minimumGradeByType =>
-        MinimumGradeByTypeConfig(evaluationType, number ?? double.nan),
-      AcademicRuleType.minimumApprovedPercentage =>
-        MinimumApprovedPercentageConfig(number ?? double.nan,
-            evaluationTypes: evaluationTypes, mandatoryOnly: mandatory),
-      AcademicRuleType.minimumApprovedCount => MinimumApprovedCountConfig(
-          number?.toInt() ?? 0,
-          evaluationTypes: evaluationTypes,
-          mandatoryOnly: mandatory),
-      AcademicRuleType.allEvaluationsApproved => AllEvaluationsApprovedConfig(
-          evaluationTypes: evaluationTypes, mandatoryOnly: mandatory),
-      AcademicRuleType.requiredEvaluation =>
-        RequiredEvaluationConfig(evaluationId ?? '')
-    };
-    final rule = AcademicRule(
-        id: widget.existing?.id ??
-            '${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(99999)}',
-        type: type,
-        name: name.text,
-        description: description.text,
-        enabled: enabled,
-        order: widget.order,
-        config: config);
-    final error = rule.validate(widget.subject);
-    if (error != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
-      return;
-    }
-    Navigator.pop(context, rule);
-  }
-
-  String _label(AcademicRuleType t) => switch (t) {
-        AcademicRuleType.minimumAverage => 'Promedio mínimo',
-        AcademicRuleType.minimumGradeByType => 'Nota mínima por tipo',
-        AcademicRuleType.minimumApprovedPercentage =>
-          'Porcentaje mínimo aprobado',
-        AcademicRuleType.minimumApprovedCount => 'Cantidad mínima aprobada',
-        AcademicRuleType.allEvaluationsApproved =>
-          'Todas las evaluaciones aprobadas',
-        AcademicRuleType.requiredEvaluation => 'Evaluación obligatoria'
-      };
 }

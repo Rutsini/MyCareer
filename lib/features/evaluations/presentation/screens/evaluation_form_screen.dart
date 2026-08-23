@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/errors/app_exception.dart';
+import '../../../../core/formatters/evaluation_type_formatter.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/evaluation.dart';
 import '../../../../domain/entities/evaluation_reminder.dart';
@@ -43,6 +44,7 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
   bool _counts = true;
   bool? _presented;
   bool _initialized = false;
+  bool _submitting = false;
   List<EvaluationReminder> _reminders = [];
 
   @override
@@ -121,18 +123,38 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
   }
 
   Future<void> _save(List<Subject> subjects) async {
+    if (_submitting) return;
     if (!_form.currentState!.validate() || _subjectId == null) return;
-    final id = await ref
-        .read(evaluationControllerProvider.notifier)
-        .save(_build(subjects));
-    if (!mounted || id == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Evaluación guardada correctamente.')));
-    context.pop();
+    setState(() => _submitting = true);
+    try {
+      final evaluation = _build(subjects);
+      final id = await ref
+          .read(evaluationControllerProvider.notifier)
+          .save(evaluation);
+      if (!mounted || id == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Evaluación guardada correctamente.')));
+      if (widget.evaluationId != null && context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.subject(evaluation.subjectId));
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
+
+  void _goBackFallback() => context.go(
+      _subjectId == null ? AppRoutes.calendar : AppRoutes.subject(_subjectId!));
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(child: _buildContent(context)),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final subjectsAsync = ref.watch(subjectsProvider);
     final existing = widget.evaluationId == null
         ? null
@@ -142,7 +164,7 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
       error: (_, __) => ContentPage(
           title: 'Evaluación',
           showBackButton: true,
-          backFallback: () => context.go(AppRoutes.calendar),
+          backFallback: _goBackFallback,
           child: const Text('No pudimos cargar tus materias.')),
       data: (allSubjects) {
         final subjects = allSubjects
@@ -154,7 +176,7 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
           return ContentPage(
               title: 'Evaluación',
               showBackButton: true,
-              backFallback: () => context.go(AppRoutes.calendar),
+              backFallback: _goBackFallback,
               child: const Text('No pudimos cargar la evaluación.'));
         if (existing?.valueOrNull case final evaluation?) _load(evaluation);
         if (!_initialized && widget.evaluationId == null) {
@@ -194,70 +216,82 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
               ? 'Nueva evaluación'
               : 'Editar evaluación',
           showBackButton: true,
-          backFallback: () => context.go(AppRoutes.calendar),
+          backFallback: _goBackFallback,
           child: Form(
             key: _form,
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropdownButtonFormField<String>(
-                    value: subjects.any((s) => s.id == _subjectId)
-                        ? _subjectId
-                        : null,
-                    decoration: const InputDecoration(labelText: 'Materia *'),
-                    items: subjects
-                        .map((s) =>
-                            DropdownMenuItem(value: s.id, child: Text(s.name)))
-                        .toList(),
-                    onChanged: (value) => setState(() {
-                      _subjectId = value;
-                      _recoveryOf = null;
-                      final subject = subjects.firstWhere((s) => s.id == value);
-                      _maxGrade.text = subject.gradeMax.toString();
-                    }),
-                    validator: (value) =>
-                        value == null ? 'Seleccioná una materia.' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                      controller: _name,
-                      decoration: const InputDecoration(labelText: 'Nombre *'),
-                      validator: (value) {
-                        final length = value?.trim().length ?? 0;
-                        return length < 2 || length > 100
-                            ? 'Ingresá entre 2 y 100 caracteres.'
-                            : null;
-                      }),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<EvaluationType>(
-                      value: _type,
-                      decoration: const InputDecoration(labelText: 'Tipo *'),
-                      items: EvaluationType.values
-                          .map((v) => DropdownMenuItem(
-                              value: v, child: Text(_typeLabel(v))))
-                          .toList(),
-                      onChanged: (value) => setState(() {
-                            _type = value!;
-                            if (_type != EvaluationType.recovery)
-                              _recoveryOf = null;
+                  _fieldLabel(
+                      'Materia *',
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: subjects.any((s) => s.id == _subjectId)
+                            ? _subjectId
+                            : null,
+                        decoration: const InputDecoration(),
+                        items: subjects
+                            .map((s) => DropdownMenuItem(
+                                value: s.id, child: Text(s.name)))
+                            .toList(),
+                        onChanged: (value) => setState(() {
+                          _subjectId = value;
+                          _recoveryOf = null;
+                          final subject =
+                              subjects.firstWhere((s) => s.id == value);
+                          _maxGrade.text = subject.gradeMax.toString();
+                        }),
+                        validator: (value) =>
+                            value == null ? 'Seleccioná una materia.' : null,
+                      )),
+                  const SizedBox(height: 16),
+                  _fieldLabel(
+                      'Nombre *',
+                      TextFormField(
+                          controller: _name,
+                          decoration: const InputDecoration(),
+                          validator: (value) {
+                            final length = value?.trim().length ?? 0;
+                            return length < 2 || length > 100
+                                ? 'Ingresá entre 2 y 100 caracteres.'
+                                : null;
                           })),
+                  const SizedBox(height: 16),
+                  _fieldLabel(
+                      'Tipo *',
+                      DropdownButtonFormField<EvaluationType>(
+                          isExpanded: true,
+                          value: _type,
+                          decoration: const InputDecoration(),
+                          items: EvaluationType.values
+                              .map((v) => DropdownMenuItem(
+                                  value: v,
+                                  child: Text(evaluationTypeLabel(v))))
+                              .toList(),
+                          onChanged: (value) => setState(() {
+                                _type = value!;
+                                if (_type != EvaluationType.recovery)
+                                  _recoveryOf = null;
+                              }))),
                   if (_type == EvaluationType.recovery) ...[
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                        value: originals.any((e) => e.id == _recoveryOf)
-                            ? _recoveryOf
-                            : null,
-                        decoration: const InputDecoration(
-                            labelText: 'Evaluación que recupera *'),
-                        items: originals
-                            .map((e) => DropdownMenuItem(
-                                value: e.id, child: Text(e.name)))
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _recoveryOf = value),
-                        validator: (value) => value == null
-                            ? 'Seleccioná la evaluación original.'
-                            : null),
+                    _fieldLabel(
+                        'Evaluación que recupera *',
+                        DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: originals.any((e) => e.id == _recoveryOf)
+                                ? _recoveryOf
+                                : null,
+                            decoration: const InputDecoration(),
+                            items: originals
+                                .map((e) => DropdownMenuItem(
+                                    value: e.id, child: Text(e.name)))
+                                .toList(),
+                            onChanged: (value) =>
+                                setState(() => _recoveryOf = value),
+                            validator: (value) => value == null
+                                ? 'Seleccioná la evaluación original.'
+                                : null)),
                   ],
                   const SizedBox(height: 12),
                   ListTile(
@@ -324,7 +358,7 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
                       value: _counts,
                       onChanged: (v) => setState(() => _counts = v)),
                   Row(children: [
-                    Expanded(child: _numberField(_grade, 'Nota (opcional)')),
+                    Expanded(child: _numberField(_grade, 'Nota')),
                     const SizedBox(width: 12),
                     Expanded(child: _numberField(_maxGrade, 'Nota máxima *'))
                   ]),
@@ -337,32 +371,38 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
                     Expanded(child: _numberField(_weight, 'Peso *'))
                   ]),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<EvaluationStatus>(
-                      value: _status,
-                      decoration: const InputDecoration(labelText: 'Estado'),
-                      items: EvaluationStatus.values
-                          .map((v) => DropdownMenuItem(
-                              value: v, child: Text(_statusLabel(v))))
-                          .toList(),
-                      onChanged: (v) => setState(() => _status = v!)),
+                  _fieldLabel(
+                      'Estado',
+                      DropdownButtonFormField<EvaluationStatus>(
+                          isExpanded: true,
+                          value: _status,
+                          decoration: const InputDecoration(),
+                          items: EvaluationStatus.values
+                              .map((v) => DropdownMenuItem(
+                                  value: v, child: Text(_statusLabel(v))))
+                              .toList(),
+                          onChanged: (v) => setState(() => _status = v!))),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<bool?>(
-                      value: _presented,
-                      decoration: const InputDecoration(
-                          labelText: 'Presentada (opcional)'),
-                      items: const [
-                        DropdownMenuItem(
-                            value: null, child: Text('Sin indicar')),
-                        DropdownMenuItem(value: true, child: Text('Sí')),
-                        DropdownMenuItem(value: false, child: Text('No'))
-                      ],
-                      onChanged: (v) => setState(() => _presented = v)),
+                  _fieldLabel(
+                      'Presentada',
+                      DropdownButtonFormField<bool?>(
+                          isExpanded: true,
+                          value: _presented,
+                          decoration: const InputDecoration(),
+                          items: const [
+                            DropdownMenuItem(
+                                value: null, child: Text('Sin indicar')),
+                            DropdownMenuItem(value: true, child: Text('Sí')),
+                            DropdownMenuItem(value: false, child: Text('No'))
+                          ],
+                          onChanged: (v) => setState(() => _presented = v))),
                   const SizedBox(height: 12),
-                  TextFormField(
-                      controller: _notes,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                          labelText: 'Notas / observaciones')),
+                  _fieldLabel(
+                      'Notas / observaciones',
+                      TextFormField(
+                          controller: _notes,
+                          maxLines: 3,
+                          decoration: const InputDecoration())),
                   const SizedBox(height: 20),
                   Text('Recordatorios',
                       style: Theme.of(context).textTheme.titleMedium),
@@ -429,7 +469,9 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
                                 color: Theme.of(context).colorScheme.error))),
                   const SizedBox(height: 20),
                   FilledButton(
-                      onPressed: state.isLoading ? null : () => _save(subjects),
+                      onPressed: state.isLoading || _submitting
+                          ? null
+                          : () => _save(subjects),
                       child: const Text('Guardar')),
                 ]),
           ),
@@ -439,22 +481,24 @@ class _EvaluationFormScreenState extends ConsumerState<EvaluationFormScreen> {
   }
 
   Widget _numberField(TextEditingController controller, String label) =>
-      TextFormField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(labelText: label));
+      _fieldLabel(
+          label,
+          TextFormField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration()));
+
+  Widget _fieldLabel(String label, Widget field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 6),
+          field,
+        ],
+      );
 }
 
-String _typeLabel(EvaluationType value) => switch (value) {
-      EvaluationType.partial => 'Parcial',
-      EvaluationType.recovery => 'Recuperatorio',
-      EvaluationType.practicalWork => 'Trabajo práctico',
-      EvaluationType.deliverable => 'Entregable',
-      EvaluationType.project => 'Proyecto',
-      EvaluationType.colloquium => 'Coloquio',
-      EvaluationType.finalExam => 'Examen final',
-      EvaluationType.other => 'Otro',
-    };
 String _statusLabel(EvaluationStatus value) => switch (value) {
       EvaluationStatus.pending => 'Pendiente',
       EvaluationStatus.submitted => 'Presentada / Entregada',
