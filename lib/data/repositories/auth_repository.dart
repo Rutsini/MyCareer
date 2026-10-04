@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/errors/auth_exception.dart';
 import '../../domain/entities/user_profile.dart';
 import '../firebase/auth_service.dart';
+import '../firebase/user_profile_service.dart';
 
 abstract interface class AuthRepository {
   Stream<UserProfile?> authStateChanges();
@@ -27,20 +27,44 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Stream<UserProfile?> authStateChanges() =>
-      _service.authStateChanges().map(_toProfile);
+      _service.authStateChanges().asyncMap((user) async {
+        if (user == null) return null;
+        try {
+          await _ensureProfile(user);
+        } on FirebaseException {
+          // A restored session remains usable offline. A later authentication
+          // attempt will retry the repair and surface an actionable error.
+        }
+        return _toProfile(user);
+      });
 
   @override
   UserProfile? get currentUser => _toProfile(_service.currentUser);
 
   @override
   Future<void> signIn({required String email, required String password}) async {
+    User? user;
     try {
-      await _service.signIn(email: email.trim(), password: password);
+      final credential =
+          await _service.signIn(email: email.trim(), password: password);
+      user = credential.user;
     } on FirebaseAuthException catch (error) {
       throw _translate(error);
     } catch (error) {
       throw AuthException('No pudimos iniciar sesión. Intentá nuevamente.',
           cause: error);
+    }
+    if (user == null) {
+      throw const AuthException('No pudimos iniciar sesión.');
+    }
+    try {
+      await _ensureProfile(user);
+    } on FirebaseException catch (error) {
+      throw AuthException(
+        'Iniciaste sesión, pero no pudimos preparar tu perfil. '
+        'Intentá nuevamente.',
+        cause: error,
+      );
     }
   }
 
@@ -61,24 +85,7 @@ class FirebaseAuthRepository implements AuthRepository {
         throw const AuthException('No pudimos crear la cuenta.');
       }
       await createdUser.updateDisplayName(name.trim());
-      await _firestore.collection('users').doc(createdUser.uid).set({
-        'displayName': name.trim(),
-        'email': email.trim(),
-        'career': {
-          'name': null,
-          'currentYear': null,
-          'totalSubjects': null,
-          'requiredElectivePoints': null,
-        },
-        'settings': {
-          'theme': 'system',
-          'defaultGradeMin': 0,
-          'defaultGradeMax': 10,
-        },
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'schemaVersion': AppConstants.schemaVersion,
-      });
+      await _ensureProfile(createdUser, displayName: name);
     } on FirebaseAuthException catch (error) {
       throw _translate(error);
     } on FirebaseException catch (error) {
@@ -122,6 +129,12 @@ class FirebaseAuthRepository implements AuthRepository {
           email: user.email ?? '',
           displayName: user.displayName,
         );
+
+  Future<void> _ensureProfile(User user, {String? displayName}) =>
+      UserProfileService(_firestore, user.uid).ensureProfile(
+        email: user.email ?? '',
+        displayName: displayName ?? user.displayName,
+      );
 
   AuthException _translate(FirebaseAuthException error) {
     final message = switch (error.code) {

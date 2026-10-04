@@ -12,6 +12,8 @@ La v0.6 incluye todo lo anterior y además:
 
 - Autenticación mediante correo electrónico y contraseña.
 - Integración con Firebase Authentication.
+- Creación y reparación automática del perfil al registrar, iniciar sesión o
+  restaurar una sesión existente, preservando la configuración válida.
 - Persistencia mediante Cloud Firestore.
 - Perfil académico configurable.
 - Gestión de años académicos.
@@ -353,7 +355,7 @@ flutter analyze
 No issues found
 
 flutter test
-100 tests aprobados
+119 tests aprobados
 ```
 
 ## Roadmap

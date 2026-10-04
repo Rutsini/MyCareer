@@ -19,7 +19,9 @@ abstract final class UserProfileMapper {
     final hour = (notifications['allDayReminderHour'] as num?)?.toInt();
     final minute = (notifications['allDayReminderMinute'] as num?)?.toInt();
     return NotificationSettings(
-      enabled: notifications['enabled'] as bool? ?? false,
+      enabled: notifications['enabled'] is bool
+          ? notifications['enabled'] as bool
+          : false,
       defaultReminderOffsetsMinutes: offsets,
       allDayReminderHour: hour != null && hour >= 0 && hour <= 23 ? hour : 9,
       allDayReminderMinute:
@@ -29,21 +31,37 @@ abstract final class UserProfileMapper {
 
   static UserProfile fromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const <String, dynamic>{};
-    final career = data['career'] as Map<String, dynamic>? ?? const {};
-    final settings = data['settings'] as Map<String, dynamic>? ?? const {};
+    return fromMap(doc.id, data);
+  }
+
+  static UserProfile fromMap(String id, Map<String, dynamic> data) {
+    final career = data['career'] is Map
+        ? Map<String, dynamic>.from(data['career'] as Map)
+        : const <String, dynamic>{};
+    final settings = data['settings'] is Map
+        ? Map<String, dynamic>.from(data['settings'] as Map)
+        : const <String, dynamic>{};
     return UserProfile(
-      id: doc.id,
-      email: data['email'] as String? ?? '',
-      displayName: data['displayName'] as String?,
+      id: id,
+      email: data['email'] is String ? data['email'] as String : '',
+      displayName:
+          data['displayName'] is String ? data['displayName'] as String : null,
       career: CareerSettings(
-        name: career['name'] as String?,
-        currentYear: (career['currentYear'] as num?)?.toInt(),
-        totalSubjects: (career['totalSubjects'] as num?)?.toInt(),
-        requiredElectivePoints:
-            (career['requiredElectivePoints'] as num?)?.toDouble(),
+        name: career['name'] is String ? career['name'] as String : null,
+        currentYear: career['currentYear'] is num
+            ? (career['currentYear'] as num).toInt()
+            : null,
+        totalSubjects: career['totalSubjects'] is num
+            ? (career['totalSubjects'] as num).toInt()
+            : null,
+        requiredElectivePoints: career['requiredElectivePoints'] is num
+            ? (career['requiredElectivePoints'] as num).toDouble()
+            : null,
       ),
       settings: UserSettings(
-        theme: settings['theme'] as String? ?? 'system',
+        theme: settings['theme'] is String
+            ? settings['theme'] as String
+            : 'system',
         defaultGradeMin: numberToDouble(settings['defaultGradeMin']),
         defaultGradeMax: numberToDouble(settings['defaultGradeMax'], 10),
         notifications: notificationSettingsFromMap(settings['notifications']),
