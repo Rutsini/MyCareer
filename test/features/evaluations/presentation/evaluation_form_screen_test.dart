@@ -23,7 +23,6 @@ class _Subjects implements SubjectRepository {
       subjectType: SubjectType.mandatory,
       duration: SubjectDuration.annual,
       courseStatus: CourseStatus.active,
-      currentCondition: AcademicCondition.noData,
       gradeMin: 0,
       gradeMax: 10,
       createdAt: DateTime(2026),
@@ -64,8 +63,6 @@ class _Evaluations implements EvaluationRepository {
 
   @override
   Future<void> deleteEvaluation(String id) async {}
-  @override
-  Future<void> deleteEvaluationsBySubject(String subjectId) async {}
 }
 
 void main() {

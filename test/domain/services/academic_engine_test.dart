@@ -40,8 +40,6 @@ void main() {
           subjectType: SubjectType.mandatory,
           duration: SubjectDuration.annual,
           courseStatus: status,
-          currentCondition:
-              mode == TrackingMode.tracked ? AcademicCondition.noData : null,
           gradeMin: 0,
           gradeMax: 10,
           recoveryPolicy: policy,

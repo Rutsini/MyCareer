@@ -22,8 +22,6 @@ Subject subject(
       electivePoints: points,
       duration: SubjectDuration.annual,
       courseStatus: status,
-      currentCondition:
-          tracking == TrackingMode.tracked ? AcademicCondition.noData : null,
       finalOutcome: outcome,
       finalGrade: grade,
       gradeMin: 0,

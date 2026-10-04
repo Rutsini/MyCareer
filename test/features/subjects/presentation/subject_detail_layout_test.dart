@@ -38,8 +38,6 @@ class _Evaluations implements EvaluationRepository {
   Future<void> updateEvaluation(Evaluation evaluation) async {}
   @override
   Future<void> deleteEvaluation(String id) async {}
-  @override
-  Future<void> deleteEvaluationsBySubject(String subjectId) async {}
 }
 
 AcademicRule _rule(String id, int order) => AcademicRule(
@@ -65,7 +63,6 @@ void main() {
         subjectType: SubjectType.mandatory,
         duration: SubjectDuration.annual,
         courseStatus: CourseStatus.active,
-        currentCondition: AcademicCondition.noData,
         gradeMin: 0,
         gradeMax: 10,
         promotionRules: [_rule('Promoción 1', 0), _rule('Promoción 2', 1)],
@@ -116,7 +113,6 @@ void main() {
         subjectType: SubjectType.mandatory,
         duration: SubjectDuration.annual,
         courseStatus: CourseStatus.active,
-        currentCondition: AcademicCondition.noData,
         gradeMin: 0,
         gradeMax: 10,
         createdAt: DateTime(2026),

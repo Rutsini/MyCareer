@@ -131,7 +131,6 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
                 ? CourseStatus.abandoned
                 : CourseStatus.finished)
             : CourseStatus.active,
-        currentCondition: historical ? null : AcademicCondition.noData,
         finalOutcome: outcome,
         finalGrade: historical && !disallowGrade ? _number(_grade.text) : null,
         approvedAt: historical ? _approvedAt : null,
@@ -739,7 +738,6 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         duration: _duration,
         semester: _duration == SubjectDuration.semester ? _semester : null,
         courseStatus: CourseStatus.active,
-        currentCondition: AcademicCondition.noData,
         gradeMin: _number(_min.text) ?? 0,
         gradeMax: _number(_max.text) ?? 10,
         createdAt: DateTime.now(),

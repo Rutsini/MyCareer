@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/evaluation.dart';
+import 'atomic_delete_guard.dart';
 import '../mappers/evaluation_mapper.dart';
 
 class EvaluationService {
@@ -31,32 +32,17 @@ class EvaluationService {
       .update(EvaluationMapper.toMap(evaluation, creating: false));
 
   Future<void> deleteEvaluation(String id) async {
-    final linked =
-        await _evaluations.where('recoveryOfEvaluationId', isEqualTo: id).get();
-    await _deleteDocuments(
-        [...linked.docs.map((d) => d.reference), _evaluations.doc(id)]);
-  }
+    final linked = await _evaluations
+        .where('recoveryOfEvaluationId', isEqualTo: id)
+        .limit(maxFirestoreBatchWrites)
+        .get();
+    ensureAtomicDeletionCapacity(linked.docs.length);
 
-  Future<void> deleteEvaluationsBySubject(String subjectId) async {
-    while (true) {
-      final snapshot = await _evaluations
-          .where('subjectId', isEqualTo: subjectId)
-          .limit(450)
-          .get();
-      if (snapshot.docs.isEmpty) return;
-      await _deleteDocuments(snapshot.docs.map((d) => d.reference).toList());
-      if (snapshot.docs.length < 450) return;
+    final batch = _firestore.batch();
+    for (final recovery in linked.docs) {
+      batch.delete(recovery.reference);
     }
-  }
-
-  Future<void> _deleteDocuments(
-      List<DocumentReference<Map<String, dynamic>>> documents) async {
-    for (var offset = 0; offset < documents.length; offset += 450) {
-      final batch = _firestore.batch();
-      for (final document in documents.skip(offset).take(450)) {
-        batch.delete(document);
-      }
-      await batch.commit();
-    }
+    batch.delete(_evaluations.doc(id));
+    await batch.commit();
   }
 }

@@ -13,7 +13,6 @@ void main() {
       subjectType: SubjectType.mandatory,
       duration: SubjectDuration.annual,
       courseStatus: CourseStatus.active,
-      currentCondition: AcademicCondition.noData,
       gradeMin: 0,
       gradeMax: 10,
       createdAt: DateTime(2026),

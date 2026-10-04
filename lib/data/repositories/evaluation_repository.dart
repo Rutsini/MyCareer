@@ -8,7 +8,6 @@ abstract interface class EvaluationRepository {
   Future<String> createEvaluation(Evaluation evaluation);
   Future<void> updateEvaluation(Evaluation evaluation);
   Future<void> deleteEvaluation(String id);
-  Future<void> deleteEvaluationsBySubject(String subjectId);
 }
 
 class FirebaseEvaluationRepository implements EvaluationRepository {
@@ -37,7 +36,4 @@ class FirebaseEvaluationRepository implements EvaluationRepository {
       _service.updateEvaluation(evaluation);
   @override
   Future<void> deleteEvaluation(String id) => _service.deleteEvaluation(id);
-  @override
-  Future<void> deleteEvaluationsBySubject(String subjectId) =>
-      _service.deleteEvaluationsBySubject(subjectId);
 }

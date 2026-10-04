@@ -13,7 +13,6 @@ Subject subject({RecoveryPolicy policy = RecoveryPolicy.highestGrade}) =>
         subjectType: SubjectType.mandatory,
         duration: SubjectDuration.annual,
         courseStatus: CourseStatus.active,
-        currentCondition: AcademicCondition.noData,
         gradeMin: 0,
         gradeMax: 10,
         recoveryPolicy: policy,

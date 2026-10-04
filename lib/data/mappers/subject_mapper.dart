@@ -37,10 +37,6 @@ abstract final class SubjectMapper {
         semester: nullableEnum(Semester.values, d['semester']),
         courseStatus: _enumValue(
             CourseStatus.values, d['courseStatus'], CourseStatus.active),
-        currentCondition: tracked == TrackingMode.tracked
-            ? nullableEnum(AcademicCondition.values, d['currentCondition']) ??
-                AcademicCondition.noData
-            : null,
         finalOutcome: nullableEnum(FinalOutcome.values, d['finalOutcome']),
         finalGrade: (d['finalGrade'] as num?)?.toDouble(),
         approvedAt: nullableDate(d['approvedAt']),
@@ -74,9 +70,7 @@ abstract final class SubjectMapper {
         'gradeScale': {'min': s.gradeMin, 'max': s.gradeMax},
         'recoveryPolicy': s.recoveryPolicy.name,
         'courseStatus': s.courseStatus.name,
-        'currentCondition': s.trackingMode == TrackingMode.tracked
-            ? s.currentCondition?.name
-            : null,
+        if (!creating) 'currentCondition': FieldValue.delete(),
         'finalOutcome': s.finalOutcome?.name,
         'finalGrade': s.finalGrade,
         'approvedAt':

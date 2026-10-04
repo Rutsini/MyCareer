@@ -32,7 +32,6 @@ class Subject {
       required this.duration,
       this.semester,
       required this.courseStatus,
-      this.currentCondition,
       this.finalOutcome,
       this.finalGrade,
       this.approvedAt,
@@ -59,7 +58,6 @@ class Subject {
   final SubjectDuration duration;
   final Semester? semester;
   final CourseStatus courseStatus;
-  final AcademicCondition? currentCondition;
   final FinalOutcome? finalOutcome;
   final double? finalGrade;
   final DateTime? approvedAt;
@@ -94,11 +92,7 @@ class Subject {
     if (finalGrade != null &&
         (finalGrade! < gradeMin || finalGrade! > gradeMax))
       return 'La nota final debe estar dentro de la escala.';
-    if (trackingMode == TrackingMode.tracked && currentCondition == null)
-      return 'La materia actual requiere una condición académica.';
     if (trackingMode == TrackingMode.historical) {
-      if (currentCondition != null)
-        return 'Una materia histórica no tiene condición actual.';
       if (finalOutcome == null) return 'Seleccioná el resultado final.';
       if ((finalOutcome == FinalOutcome.abandoned ||
               finalOutcome == FinalOutcome.regularized) &&
@@ -109,7 +103,6 @@ class Subject {
 
   Subject copyWith({
     String? id,
-    AcademicCondition? currentCondition,
     List<AcademicRule>? promotionRules,
     List<AcademicRule>? regularityRules,
     RecoveryPolicy? recoveryPolicy,
@@ -130,9 +123,6 @@ class Subject {
           duration: duration,
           semester: semester,
           courseStatus: courseStatus ?? this.courseStatus,
-          currentCondition: trackingMode == TrackingMode.tracked
-              ? currentCondition ?? this.currentCondition
-              : null,
           finalOutcome: finalOutcome,
           finalGrade: finalGrade,
           approvedAt: approvedAt,

@@ -2,11 +2,11 @@ import 'package:flutter_test/flutter_test.dart' hide Evaluation;
 import 'package:my_career/data/repositories/subject_repository.dart';
 import 'package:my_career/domain/entities/subject.dart';
 import 'package:my_career/features/subjects/application/subject_controller.dart';
-import 'package:my_career/data/repositories/evaluation_repository.dart';
-import 'package:my_career/domain/entities/evaluation.dart';
 
 class FakeSubjectRepository implements SubjectRepository {
   Subject? created;
+  Subject? updated;
+  String? deletedId;
   @override
   Future<String> createSubject(Subject subject) async {
     created = subject;
@@ -14,32 +14,13 @@ class FakeSubjectRepository implements SubjectRepository {
   }
 
   @override
-  Future<void> deleteSubject(String id) async {}
+  Future<void> deleteSubject(String id) async => deletedId = id;
   @override
-  Future<void> updateSubject(Subject subject) async {}
+  Future<void> updateSubject(Subject subject) async => updated = subject;
   @override
   Stream<Subject?> watchSubject(String id) => const Stream.empty();
   @override
   Stream<List<Subject>> watchSubjects() => const Stream.empty();
-}
-
-class FakeEvaluationRepository implements EvaluationRepository {
-  String? deletedSubject;
-  @override
-  Future<void> deleteEvaluationsBySubject(String id) async {
-    deletedSubject = id;
-  }
-
-  @override
-  Future<String> createEvaluation(Evaluation e) => throw UnimplementedError();
-  @override
-  Future<void> deleteEvaluation(String id) => throw UnimplementedError();
-  @override
-  Future<void> updateEvaluation(Evaluation e) => throw UnimplementedError();
-  @override
-  Stream<Evaluation?> watchEvaluation(String id) => const Stream.empty();
-  @override
-  Stream<List<Evaluation>> watchEvaluations() => const Stream.empty();
 }
 
 void main() {
@@ -55,7 +36,6 @@ void main() {
         subjectType: SubjectType.mandatory,
         duration: SubjectDuration.annual,
         courseStatus: CourseStatus.active,
-        currentCondition: AcademicCondition.noData,
         gradeMin: 0,
         gradeMax: 10,
         createdAt: DateTime(2026),
@@ -63,11 +43,42 @@ void main() {
     expect(await controller.save(value), 'new-id');
     expect(repository.created?.name, 'Álgebra');
   });
-  test('al eliminar materia procesa solo sus evaluaciones asociadas', () async {
+  test('editar materia actualiza sus notificaciones locales', () async {
+    final repository = FakeSubjectRepository();
+    var notificationsSynchronized = false;
+    final controller = SubjectController(
+      repository,
+      () async => notificationsSynchronized = true,
+    );
+    final value = Subject(
+        id: 'subject-a',
+        academicYearId: '2026',
+        academicYear: 2026,
+        trackingMode: TrackingMode.tracked,
+        name: 'Álgebra II',
+        subjectType: SubjectType.mandatory,
+        duration: SubjectDuration.annual,
+        courseStatus: CourseStatus.active,
+        gradeMin: 0,
+        gradeMax: 10,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026));
+
+    expect(await controller.save(value), 'subject-a');
+    expect(repository.updated, value);
+    expect(notificationsSynchronized, isTrue);
+  });
+  test('al eliminar materia delega la cascada atómica al repositorio',
+      () async {
     final subjects = FakeSubjectRepository();
-    final evaluations = FakeEvaluationRepository();
-    expect(await SubjectController(subjects, evaluations).delete('subject-a'),
-        isTrue);
-    expect(evaluations.deletedSubject, 'subject-a');
+    var notificationsSynchronized = false;
+    final controller = SubjectController(
+      subjects,
+      () async => notificationsSynchronized = true,
+    );
+
+    expect(await controller.delete('subject-a'), isTrue);
+    expect(subjects.deletedId, 'subject-a');
+    expect(notificationsSynchronized, isTrue);
   });
 }

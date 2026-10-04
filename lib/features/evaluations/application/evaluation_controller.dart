@@ -6,7 +6,6 @@ import '../../../data/repositories/evaluation_repository.dart';
 import '../../../domain/entities/evaluation.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../profile/application/profile_controller.dart';
-import '../../subjects/application/academic_controller.dart';
 import '../../notifications/application/notification_controller.dart';
 
 final evaluationServiceProvider = Provider((ref) =>
@@ -24,17 +23,13 @@ final subjectEvaluationsProvider =
             .toList()));
 final evaluationControllerProvider =
     StateNotifierProvider<EvaluationController, AsyncValue<void>>((ref) =>
-        EvaluationController(
-            ref.watch(evaluationRepositoryProvider),
-            (id) => ref.read(academicSynchronizerProvider).synchronize(id),
+        EvaluationController(ref.watch(evaluationRepositoryProvider),
             () => ref.read(notificationCoordinatorProvider).synchronize()));
 
 class EvaluationController extends StateNotifier<AsyncValue<void>> {
-  EvaluationController(this._repository,
-      [this._synchronize, this._syncNotifications])
+  EvaluationController(this._repository, [this._syncNotifications])
       : super(const AsyncData(null));
   final EvaluationRepository _repository;
-  final Future<void> Function(String)? _synchronize;
   final Future<void> Function()? _syncNotifications;
 
   Future<String?> save(Evaluation evaluation) async {
@@ -48,7 +43,6 @@ class EvaluationController extends StateNotifier<AsyncValue<void>> {
       if (evaluation.id.isNotEmpty) {
         await _repository.updateEvaluation(evaluation);
       }
-      await _synchronize?.call(evaluation.subjectId);
       try {
         await _syncNotifications?.call();
       } catch (_) {
@@ -69,11 +63,7 @@ class EvaluationController extends StateNotifier<AsyncValue<void>> {
   Future<bool> delete(String id) async {
     state = const AsyncLoading();
     try {
-      final evaluation = _synchronize == null
-          ? null
-          : await _repository.watchEvaluation(id).first;
       await _repository.deleteEvaluation(id);
-      if (evaluation != null) await _synchronize?.call(evaluation.subjectId);
       try {
         await _syncNotifications?.call();
       } catch (_) {
@@ -81,6 +71,9 @@ class EvaluationController extends StateNotifier<AsyncValue<void>> {
       }
       state = const AsyncData(null);
       return true;
+    } on AppException catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return false;
     } catch (_, stackTrace) {
       state = AsyncError(
           const AppException('No pudimos eliminar la evaluación.'), stackTrace);

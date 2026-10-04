@@ -1,7 +1,6 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/app_exception.dart';
-import '../../../data/repositories/evaluation_repository.dart';
 import '../../../data/repositories/subject_repository.dart';
 import '../../../domain/entities/academic_rule.dart';
 import '../../../domain/entities/subject.dart';
@@ -30,39 +29,13 @@ final subjectAcademicResultProvider =
       });
 });
 
-class AcademicConditionSynchronizer {
-  AcademicConditionSynchronizer(this.subjects, this.evaluations, this.engine);
-  final SubjectRepository subjects;
-  final EvaluationRepository evaluations;
-  final AcademicEngine engine;
-  Future<void> synchronize(String subjectId) async {
-    final subject = await subjects.watchSubject(subjectId).first;
-    if (subject == null) return;
-    final all = await evaluations.watchEvaluations().first;
-    final condition =
-        engine.evaluate(subject: subject, evaluations: all).condition;
-    if (condition != subject.currentCondition) {
-      await subjects.updateSubject(subject.copyWith(
-          currentCondition: condition, updatedAt: DateTime.now()));
-    }
-  }
-}
-
-final academicSynchronizerProvider = Provider((ref) =>
-    AcademicConditionSynchronizer(
-        ref.watch(subjectRepositoryProvider),
-        ref.watch(evaluationRepositoryProvider),
-        ref.watch(academicEngineProvider)));
 final academicRuleControllerProvider =
-    StateNotifierProvider<AcademicRuleController, AsyncValue<void>>((ref) =>
-        AcademicRuleController(ref.watch(subjectRepositoryProvider),
-            ref.watch(academicSynchronizerProvider)));
+    StateNotifierProvider<AcademicRuleController, AsyncValue<void>>(
+        (ref) => AcademicRuleController(ref.watch(subjectRepositoryProvider)));
 
 class AcademicRuleController extends StateNotifier<AsyncValue<void>> {
-  AcademicRuleController(this.repository, this.synchronizer)
-      : super(const AsyncData(null));
+  AcademicRuleController(this.repository) : super(const AsyncData(null));
   final SubjectRepository repository;
-  final AcademicConditionSynchronizer synchronizer;
   Future<bool> saveRules(Subject subject,
       {List<AcademicRule>? promotion, List<AcademicRule>? regularity}) async {
     state = const AsyncLoading();
@@ -79,7 +52,6 @@ class AcademicRuleController extends StateNotifier<AsyncValue<void>> {
         if (error != null) throw AppException(error);
       }
       await repository.updateSubject(updated);
-      await synchronizer.synchronize(subject.id);
       state = const AsyncData(null);
       return true;
     } on AppException catch (error, stack) {

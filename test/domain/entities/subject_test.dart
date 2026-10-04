@@ -24,8 +24,6 @@ Subject subject({
       courseStatus: mode == TrackingMode.tracked
           ? CourseStatus.active
           : CourseStatus.finished,
-      currentCondition:
-          mode == TrackingMode.tracked ? AcademicCondition.noData : null,
       finalOutcome: outcome,
       finalGrade: grade,
       gradeMin: 0,

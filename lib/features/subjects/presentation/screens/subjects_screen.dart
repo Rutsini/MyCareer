@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/errors/app_exception.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/academic_year.dart';
 import '../../../../domain/entities/subject.dart';
@@ -268,8 +269,17 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
                           child: const Text('Eliminar'))
                     ])) ??
         false;
-    if (confirmed)
-      await ref.read(subjectControllerProvider.notifier).delete(subject.id);
+    if (!confirmed) return;
+    final deleted =
+        await ref.read(subjectControllerProvider.notifier).delete(subject.id);
+    if (!deleted && context.mounted) {
+      final error = ref.read(subjectControllerProvider).error;
+      final message = error is AppException
+          ? error.message
+          : 'No pudimos eliminar la materia.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 }
 

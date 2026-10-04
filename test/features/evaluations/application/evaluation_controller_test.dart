@@ -22,8 +22,6 @@ class FakeRepository implements EvaluationRepository {
   }
 
   @override
-  Future<void> deleteEvaluationsBySubject(String id) async {}
-  @override
   Stream<Evaluation?> watchEvaluation(String id) => const Stream.empty();
   @override
   Stream<List<Evaluation>> watchEvaluations() => const Stream.empty();

@@ -69,9 +69,6 @@ class _EvaluationRepository implements EvaluationRepository {
   Future<void> deleteEvaluation(String id) async {}
 
   @override
-  Future<void> deleteEvaluationsBySubject(String subjectId) async {}
-
-  @override
   Future<void> updateEvaluation(Evaluation evaluation) async {}
 }
 
@@ -142,9 +139,8 @@ void main() {
             ))),
         subjectRepositoryProvider.overrideWithValue(subjects),
         evaluationRepositoryProvider.overrideWithValue(evaluations),
-        subjectControllerProvider.overrideWith(
-          (_) => SubjectController(subjects, evaluations),
-        ),
+        subjectControllerProvider
+            .overrideWith((_) => SubjectController(subjects)),
       ],
       child: MaterialApp.router(
         theme: AppTheme.light,

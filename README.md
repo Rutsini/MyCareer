@@ -21,6 +21,8 @@ La v0.6 incluye todo lo anterior y además:
 - Materias actuales.
 - Materias históricas.
 - Creación, edición y eliminación de materias.
+- Eliminación atómica de materias junto con sus evaluaciones y de evaluaciones
+  junto con sus recuperatorios, sin estados parciales.
 - Búsqueda y filtros de materias.
 - Historial académico inicial.
 - Promedio general de materias aprobadas/promocionadas.
@@ -37,6 +39,8 @@ La v0.6 incluye todo lo anterior y además:
 - Seis tipos de condición: promedio mínimo, nota mínima por tipo, porcentaje y cantidad aprobada, todas aprobadas y evaluación obligatoria.
 - Motor académico puro con estados cumplida, pendiente y no cumplida.
 - Condición automática: sin datos, promocionando, regular, en riesgo o no regularizó.
+- La condición académica se calcula en vivo como dato derivado y no se persiste,
+  evitando resultados desactualizados.
 - Resolución unificada de evaluaciones y recuperatorios, sin doble conteo.
 - Requisitos faltantes y nota exacta requerida cuando el cálculo es determinístico.
 - Pestaña Condiciones para crear, editar, habilitar, reordenar y eliminar reglas.
@@ -246,7 +250,9 @@ cache persistida de `progress`.
 Las reglas académicas son listas pequeñas embebidas en `Subject`; no existe una
 colección `academicRules`. Los documentos se guardan con `schemaVersion: 2` y el
 mapper mantiene compatibilidad con documentos v1 o sin versión, interpretando las
-listas ausentes como vacías.
+listas ausentes como vacías. `currentCondition` no se persiste: documentos
+anteriores pueden conservar ese campo hasta su próxima edición, momento en que se
+elimina, y la aplicación siempre lo ignora para calcular la condición en vivo.
 
 `Subject.recoveryPolicy` se persiste en cada materia. Los documentos anteriores a
 v0.3 que no contienen el campo se leen con el valor técnico compatible
@@ -355,7 +361,7 @@ flutter analyze
 No issues found
 
 flutter test
-119 tests aprobados
+121 tests aprobados
 ```
 
 ## Roadmap

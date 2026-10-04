@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/errors/app_exception.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/evaluation.dart';
 import '../../../../domain/entities/subject.dart';
@@ -280,7 +281,17 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                           child: const Text('Eliminar'))
                     ])) ??
         false;
-    if (ok) await ref.read(evaluationControllerProvider.notifier).delete(e.id);
+    if (!ok) return;
+    final deleted =
+        await ref.read(evaluationControllerProvider.notifier).delete(e.id);
+    if (!deleted && mounted) {
+      final error = ref.read(evaluationControllerProvider).error;
+      final message = error is AppException
+          ? error.message
+          : 'No pudimos eliminar la evaluación.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   bool _matches(Evaluation e) => switch (filter) {
