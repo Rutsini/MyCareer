@@ -1,4 +1,4 @@
-# MyCareer — v0.6
+# MyCareer — v0.7
 
 Aplicación académica personal desarrollada con Flutter para Android y Web.
 
@@ -6,9 +6,9 @@ MyCareer permite registrar y organizar la trayectoria académica de un estudiant
 
 ## Estado actual
 
-Versión: **0.6.0+6**
+Versión: **0.7.0+7**
 
-La v0.6 incluye todo lo anterior y además:
+La v0.7 incluye todo lo anterior y además:
 
 - Autenticación mediante correo electrónico y contraseña.
 - Integración con Firebase Authentication.
@@ -21,8 +21,9 @@ La v0.6 incluye todo lo anterior y además:
 - Materias actuales.
 - Materias históricas.
 - Creación, edición y eliminación de materias.
-- Eliminación atómica de materias junto con sus evaluaciones y de evaluaciones
-  junto con sus recuperatorios, sin estados parciales.
+- Eliminación atómica de materias junto con sus evaluaciones, desvinculación de
+  sus actividades y eliminación de evaluaciones junto con sus recuperatorios,
+  sin estados parciales.
 - Búsqueda y filtros de materias.
 - Historial académico inicial.
 - Promedio general de materias aprobadas/promocionadas.
@@ -33,7 +34,12 @@ La v0.6 incluye todo lo anterior y además:
 - Notas, escalas, pesos y promedio actual ponderado por materia.
 - Recuperatorios vinculados y políticas `replaceGrade`, `highestGrade` y `approvalOnly`.
 - Próxima evaluación calculada dinámicamente en las tarjetas de materias.
-- Calendario académico mensual con actividades por día y alta contextual.
+- Agenda con pestañas `Calendario`, `Lista` y `Actividades`.
+- Calendario académico mensual que distingue evaluaciones y actividades.
+- Actividades tipo to-do asignadas a un día, sin hora ni calificación, con
+  materia opcional y estados pendiente/completada.
+- Alta contextual de actividades desde el detalle de cualquier día, además de
+  edición y eliminación desde su lista.
 - Eliminación en cascada de las evaluaciones al eliminar una materia.
 - Reglas configurables de promoción y regularidad embebidas en cada materia.
 - Seis tipos de condición: promedio mínimo, nota mínima por tipo, porcentaje y cantidad aprobada, todas aprobadas y evaluación obligatoria.
@@ -177,6 +183,8 @@ users/{uid}/subjects/{subjectId}
 
 users/{uid}/evaluations/{evaluationId}
   reminders[]
+
+users/{uid}/activities/{activityId}
 ```
 
 Ejemplo:
@@ -196,8 +204,12 @@ users
     │   ├── {subjectId}
     │   └── ...
     │
-    └── evaluations
-        ├── {evaluationId}
+    ├── evaluations
+    │   ├── {evaluationId}
+    │   └── ...
+    │
+    └── activities
+        ├── {activityId}
         └── ...
 ```
 
@@ -212,10 +224,11 @@ notifications
 
 El historial se obtiene actualmente a partir de las propias materias.
 
-Las evaluaciones se mantienen en una colección plana bajo el usuario e incluyen
-`subjectId`. La aplicación observa esa colección una vez y filtra localmente por
-materia, mes y día. Esto evita consultas por cada día del calendario y no requiere
-índices compuestos en v0.6.
+Las evaluaciones y actividades se mantienen en colecciones planas bajo el
+usuario. La aplicación observa cada colección una vez y filtra localmente por
+materia, mes y día. Esto evita consultas por cada día del calendario y no
+requiere índices compuestos en v0.7. Las actividades usan `schemaVersion: 1`,
+guardan sólo el día y nunca contienen campos de calificación.
 
 `settings.notifications` contiene `enabled`,
 `defaultReminderOffsetsMinutes`, `allDayReminderHour` y
@@ -365,17 +378,17 @@ flutter build apk --debug
 git diff --check
 ```
 
-Estado de la v0.6:
+Estado de la v0.7:
 
 ```text
 flutter analyze
 No issues found
 
 flutter test
-122 tests aprobados
+134 tests aprobados
 
 npm run test:firestore-rules
-7 tests aprobados
+8 tests aprobados
 ```
 
 ## Roadmap
@@ -403,6 +416,10 @@ Dashboard académico completo
 
 v0.6
 Notificaciones y recordatorios
+✅ Completada
+
+v0.7
+Actividades to-do integradas con calendario y lista
 ✅ Completada
 
 Próximas mejoras: por definir

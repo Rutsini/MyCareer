@@ -510,6 +510,44 @@ service cloud.firestore {
         data.schemaVersion == 2;
     }
 
+    function validActivity(data, userId) {
+      return data.keys().hasOnly([
+          'title',
+          'description',
+          'day',
+          'subjectId',
+          'isCompleted',
+          'createdAt',
+          'updatedAt',
+          'schemaVersion'
+        ]) &&
+        data.keys().hasAll([
+          'title',
+          'description',
+          'day',
+          'subjectId',
+          'isCompleted',
+          'createdAt',
+          'updatedAt',
+          'schemaVersion'
+        ]) &&
+        data.title is string &&
+        data.title.size() >= 2 && data.title.size() <= 100 &&
+        isNullableString(data.description, 1000) &&
+        data.day is string &&
+        data.day.matches(
+          '^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1])$'
+        ) &&
+        (data.subjectId == null ||
+          (data.subjectId is string &&
+            data.subjectId.size() > 0 &&
+            exists(/databases/$(database)/documents/users/$(userId)/subjects/$(data.subjectId)))) &&
+        data.isCompleted is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.schemaVersion == 1;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId) &&
@@ -534,6 +572,13 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId) &&
           validEvaluation(request.resource.data, userId, evaluationId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /activities/{activityId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          validActivity(request.resource.data, userId);
         allow delete: if isOwner(userId);
       }
 

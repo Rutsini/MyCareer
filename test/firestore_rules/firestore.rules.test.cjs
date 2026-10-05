@@ -158,6 +158,20 @@ function evaluation(overrides = {}) {
   };
 }
 
+function activity(overrides = {}) {
+  return {
+    title: 'Leer capítulo 4',
+    description: null,
+    day: '2026-10-05',
+    subjectId: 'subject-a',
+    isCompleted: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    schemaVersion: 1,
+    ...overrides,
+  };
+}
+
 async function seedAcademicContext(userId = 'alice') {
   await seed(`users/${userId}`, profile({ email: `${userId}@example.com` }));
   await seed(`users/${userId}/academicYears/2026`, academicYear());
@@ -340,23 +354,64 @@ test('los recuperatorios requieren una evaluación original compatible',
       );
     });
 
+test('las actividades son tareas por día sin campos de calificación', async () => {
+  await seedAcademicContext();
+  const activityPath = 'users/alice/activities/activity-a';
+
+  await assertSucceeds(
+    setDoc(doc(authenticatedDb('alice'), activityPath), activity()),
+  );
+  await assertSucceeds(
+    setDoc(
+      doc(authenticatedDb('alice'), 'users/alice/activities/without-subject'),
+      activity({ subjectId: null }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(authenticatedDb('alice'), 'users/alice/activities/orphan'),
+      activity({ subjectId: 'missing' }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(authenticatedDb('alice'), activityPath),
+      activity({ grade: 10 }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(authenticatedDb('alice'), activityPath),
+      activity({ day: timestamp }),
+    ),
+  );
+});
+
 test('permite la eliminación atómica solo al propietario', async () => {
   await seedAcademicContext();
   await seed('users/alice/evaluations/evaluation-a', evaluation());
+  await seed('users/alice/activities/activity-a', activity());
 
   const subjectPath = 'users/alice/subjects/subject-a';
   const evaluationPath = 'users/alice/evaluations/evaluation-a';
+  const activityPath = 'users/alice/activities/activity-a';
   const ownerDb = authenticatedDb('alice');
   const ownerBatch = writeBatch(ownerDb);
   ownerBatch.delete(doc(ownerDb, evaluationPath));
+  ownerBatch.update(doc(ownerDb, activityPath), {
+    subjectId: null,
+    updatedAt: timestamp,
+  });
   ownerBatch.delete(doc(ownerDb, subjectPath));
   await assertSucceeds(ownerBatch.commit());
 
   await seed('users/alice/subjects/subject-a', subject());
   await seed('users/alice/evaluations/evaluation-a', evaluation());
+  await seed('users/alice/activities/activity-a', activity());
   const attackerDb = authenticatedDb('bob');
   const attackerBatch = writeBatch(attackerDb);
   attackerBatch.delete(doc(attackerDb, evaluationPath));
+  attackerBatch.update(doc(attackerDb, activityPath), { subjectId: null });
   attackerBatch.delete(doc(attackerDb, subjectPath));
   await assertFails(attackerBatch.commit());
 });

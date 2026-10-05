@@ -11,6 +11,8 @@ class SubjectService {
       _firestore.collection('users').doc(userId).collection('subjects');
   CollectionReference<Map<String, dynamic>> get _evaluations =>
       _firestore.collection('users').doc(userId).collection('evaluations');
+  CollectionReference<Map<String, dynamic>> get _activities =>
+      _firestore.collection('users').doc(userId).collection('activities');
   Stream<QuerySnapshot<Map<String, dynamic>>> watchSubjects() =>
       _subjects.snapshots();
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchSubject(String id) =>
@@ -31,11 +33,22 @@ class SubjectService {
         .where('subjectId', isEqualTo: id)
         .limit(maxFirestoreBatchWrites)
         .get();
-    ensureAtomicDeletionCapacity(evaluations.docs.length);
+    final activities = await _activities
+        .where('subjectId', isEqualTo: id)
+        .limit(maxFirestoreBatchWrites)
+        .get();
+    ensureAtomicDeletionCapacity(
+        evaluations.docs.length + activities.docs.length);
 
     final batch = _firestore.batch();
     for (final evaluation in evaluations.docs) {
       batch.delete(evaluation.reference);
+    }
+    for (final activity in activities.docs) {
+      batch.update(activity.reference, {
+        'subjectId': null,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
     batch.delete(_subjects.doc(id));
     await batch.commit();
