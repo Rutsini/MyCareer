@@ -264,24 +264,35 @@ service cloud.firestore {
         validAcademicRule(rules[index], gradeScale);
     }
 
-    function validAcademicRules(rules, gradeScale) {
-      return rules is list &&
-        rules.size() <= 20 &&
+    function validAcademicRulesFirst5(rules, gradeScale) {
+      return
         validRuleAt(rules, 0, gradeScale) &&
         validRuleAt(rules, 1, gradeScale) &&
         validRuleAt(rules, 2, gradeScale) &&
         validRuleAt(rules, 3, gradeScale) &&
-        validRuleAt(rules, 4, gradeScale) &&
+        validRuleAt(rules, 4, gradeScale);
+    }
+
+    function validAcademicRulesFirst10(rules, gradeScale) {
+      return validAcademicRulesFirst5(rules, gradeScale) &&
         validRuleAt(rules, 5, gradeScale) &&
         validRuleAt(rules, 6, gradeScale) &&
         validRuleAt(rules, 7, gradeScale) &&
         validRuleAt(rules, 8, gradeScale) &&
-        validRuleAt(rules, 9, gradeScale) &&
+        validRuleAt(rules, 9, gradeScale);
+    }
+
+    function validAcademicRulesFirst15(rules, gradeScale) {
+      return validAcademicRulesFirst10(rules, gradeScale) &&
         validRuleAt(rules, 10, gradeScale) &&
         validRuleAt(rules, 11, gradeScale) &&
         validRuleAt(rules, 12, gradeScale) &&
         validRuleAt(rules, 13, gradeScale) &&
-        validRuleAt(rules, 14, gradeScale) &&
+        validRuleAt(rules, 14, gradeScale);
+    }
+
+    function validAcademicRulesFirst20(rules, gradeScale) {
+      return validAcademicRulesFirst15(rules, gradeScale) &&
         validRuleAt(rules, 15, gradeScale) &&
         validRuleAt(rules, 16, gradeScale) &&
         validRuleAt(rules, 17, gradeScale) &&
@@ -289,11 +300,86 @@ service cloud.firestore {
         validRuleAt(rules, 19, gradeScale);
     }
 
+    function validAcademicRules(rules, gradeScale) {
+      return rules is list &&
+        rules.size() <= 20 &&
+        ((rules.size() <= 5 &&
+            validAcademicRulesFirst5(rules, gradeScale)) ||
+          (rules.size() <= 10 &&
+            validAcademicRulesFirst10(rules, gradeScale)) ||
+          (rules.size() <= 15 &&
+            validAcademicRulesFirst15(rules, gradeScale)) ||
+          validAcademicRulesFirst20(rules, gradeScale));
+    }
+
     function validGradeScale(scale) {
       return scale is map &&
         scale.keys().hasOnly(['min', 'max']) &&
         scale.keys().hasAll(['min', 'max']) &&
         scale.min is number && scale.max is number && scale.min < scale.max;
+    }
+
+    function validScheduleBlock(block) {
+      return block is map &&
+        block.keys().hasOnly([
+          'id',
+          'weekday',
+          'startMinutes',
+          'endMinutes',
+          'location',
+          'modality',
+          'virtualLink'
+        ]) &&
+        block.keys().hasAll([
+          'id',
+          'weekday',
+          'startMinutes',
+          'endMinutes',
+          'location',
+          'modality',
+          'virtualLink'
+        ]) &&
+        block.id is string &&
+        block.id.size() > 0 && block.id.size() <= 100 &&
+        block.weekday is int &&
+        block.weekday >= 1 && block.weekday <= 7 &&
+        block.startMinutes is int &&
+        block.startMinutes >= 0 && block.startMinutes < 1440 &&
+        block.endMinutes is int &&
+        block.endMinutes > 0 && block.endMinutes <= 1440 &&
+        block.startMinutes < block.endMinutes &&
+        isNullableString(block.location, 200) &&
+        block.modality in ['presential', 'virtual', 'hybrid'] &&
+        isNullableString(block.virtualLink, 2048);
+    }
+
+    function validScheduleBlockAt(blocks, index) {
+      return blocks.size() <= index || validScheduleBlock(blocks[index]);
+    }
+
+    function validScheduleBlocksFirst5(blocks) {
+      return
+        validScheduleBlockAt(blocks, 0) &&
+        validScheduleBlockAt(blocks, 1) &&
+        validScheduleBlockAt(blocks, 2) &&
+        validScheduleBlockAt(blocks, 3) &&
+        validScheduleBlockAt(blocks, 4);
+    }
+
+    function validScheduleBlocksFirst10(blocks) {
+      return validScheduleBlocksFirst5(blocks) &&
+        validScheduleBlockAt(blocks, 5) &&
+        validScheduleBlockAt(blocks, 6) &&
+        validScheduleBlockAt(blocks, 7) &&
+        validScheduleBlockAt(blocks, 8) &&
+        validScheduleBlockAt(blocks, 9);
+    }
+
+    function validScheduleBlocks(blocks) {
+      return blocks is list &&
+        blocks.size() <= 10 &&
+        ((blocks.size() <= 5 && validScheduleBlocksFirst5(blocks)) ||
+          validScheduleBlocksFirst10(blocks));
     }
 
     function validSubject(data, userId) {
@@ -318,6 +404,7 @@ service cloud.firestore {
           'startDate',
           'endDate',
           'notes',
+          'scheduleBlocks',
           'promotionRules',
           'regularityRules',
           'createdAt',
@@ -345,6 +432,7 @@ service cloud.firestore {
           'startDate',
           'endDate',
           'notes',
+          'scheduleBlocks',
           'promotionRules',
           'regularityRules',
           'createdAt',
@@ -388,6 +476,7 @@ service cloud.firestore {
         (data.startDate == null || data.endDate == null ||
           data.startDate < data.endDate) &&
         isNullableString(data.notes, 5000) &&
+        validScheduleBlocks(data.scheduleBlocks) &&
         validAcademicRules(data.promotionRules, data.gradeScale) &&
         validAcademicRules(data.regularityRules, data.gradeScale) &&
         data.createdAt is timestamp &&

@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/errors/app_exception.dart';
+import '../../../../core/formatters/subject_schedule_formatter.dart';
 import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/evaluation.dart';
 import '../../../../domain/entities/subject.dart';
 import '../../../../domain/services/evaluation_calculator.dart';
 import '../../../../domain/services/academic_engine.dart';
 import '../../../evaluations/application/evaluation_controller.dart';
+import '../../../evaluations/presentation/widgets/evaluation_activity_sheet.dart';
 import '../../application/subject_controller.dart';
 import '../../application/academic_controller.dart';
 import '../widgets/conditions_tab.dart';
@@ -17,15 +19,27 @@ import '../widgets/conditions_tab.dart';
 enum _Filter { all, pending, completed, partial, practicalWork, recovery }
 
 class SubjectDetailScreen extends ConsumerStatefulWidget {
-  const SubjectDetailScreen({required this.subjectId, super.key});
+  const SubjectDetailScreen({
+    required this.subjectId,
+    this.initialTab = 0,
+    super.key,
+  });
   final String subjectId;
+  final int initialTab;
   @override
   ConsumerState<SubjectDetailScreen> createState() => _State();
 }
 
 class _State extends ConsumerState<SubjectDetailScreen> {
   _Filter filter = _Filter.all;
-  int _selectedTab = 0;
+  late int _selectedTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTab = widget.initialTab.clamp(0, 2);
+  }
+
   @override
   Widget build(BuildContext context) =>
       ref.watch(subjectProvider(widget.subjectId)).when(
@@ -102,8 +116,11 @@ class _State extends ConsumerState<SubjectDetailScreen> {
         : null;
     final next =
         EvaluationCalculator.nextEvaluation(items, subjectId: subject.id);
-    return Card(
-        child: Padding(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          child: Padding(
             padding: const EdgeInsets.all(24),
             child: Wrap(spacing: 40, runSpacing: 20, children: [
               _Item('Año', '${subject.academicYear}'),
@@ -136,7 +153,15 @@ class _State extends ConsumerState<SubjectDetailScreen> {
               if (academic != null && academic.regularityConfigured)
                 _Item('Regularidad',
                     '${academic.regularityResults.where((r) => r.status == RuleResultStatus.met).length} / ${academic.regularityResults.length} cumplidos')
-            ])));
+            ]),
+          ),
+        ),
+        if (subject.trackingMode == TrackingMode.tracked) ...[
+          const SizedBox(height: 12),
+          _SubjectScheduleCard(subject: subject),
+        ],
+      ],
+    );
   }
 
   Widget _evaluationList(Subject subject) =>
@@ -173,13 +198,13 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                     const Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text('Próximas')),
-                    ...upcoming.map(_card)
+                    ...upcoming.map((item) => _card(item, subject.name))
                   ],
                   if (completed.isNotEmpty) ...[
                     const Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text('Realizadas')),
-                    ...completed.map(_card)
+                    ...completed.map((item) => _card(item, subject.name))
                   ],
                   if (items.isEmpty)
                     const Card(
@@ -190,12 +215,18 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                 ]);
           });
 
-  Widget _card(Evaluation e) => Card(
+  Widget _card(Evaluation e, String subjectName) => Card(
       child: ListTile(
           title: Text(e.name),
           isThreeLine: true,
           subtitle: Text(
               '${_typeLabel(e.type)} · ${e.date.day}/${e.date.month}/${e.date.year}\n${_statusLabel(e.status)} · ${e.mandatory ? 'Obligatoria' : 'Opcional'} · Peso ${_n(e.weight)}'),
+          onTap: () => openEvaluationActivity(
+                context,
+                ref,
+                evaluation: e,
+                subjectName: subjectName,
+              ),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
             Text(e.grade == null
                 ? 'Nota: —'
@@ -203,7 +234,7 @@ class _State extends ConsumerState<SubjectDetailScreen> {
             PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'edit') context.push(AppRoutes.editEvaluation(e.id));
-                  if (v == 'grade') _quickGrade(e);
+                  if (v == 'grade') _quickGrade(e, subjectName);
                   if (v == 'delete') _delete(e);
                 },
                 itemBuilder: (_) => [
@@ -216,50 +247,13 @@ class _State extends ConsumerState<SubjectDetailScreen> {
                     ])
           ])));
 
-  Future<void> _quickGrade(Evaluation e) async {
-    final input = TextEditingController();
-    var status = e.status;
-    final accepted = await showDialog<bool>(
-        context: context,
-        builder: (dc) => StatefulBuilder(
-            builder: (_, setLocal) => AlertDialog(
-                    title: const Text('Cargar nota'),
-                    content: Column(mainAxisSize: MainAxisSize.min, children: [
-                      TextField(
-                          controller: input,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          decoration: InputDecoration(
-                              labelText: 'Nota (máximo ${_n(e.maxGrade)})')),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField(
-                          value: status,
-                          decoration: const InputDecoration(
-                              labelText: 'Estado (opcional)'),
-                          items: EvaluationStatus.values
-                              .map((v) => DropdownMenuItem(
-                                  value: v, child: Text(_statusLabel(v))))
-                              .toList(),
-                          onChanged: (v) => setLocal(() => status = v!))
-                    ]),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(dc, false),
-                          child: const Text('Cancelar')),
-                      FilledButton(
-                          onPressed: () => Navigator.pop(dc, true),
-                          child: const Text('Guardar'))
-                    ])));
-    final grade = double.tryParse(input.text.replaceAll(',', '.'));
-    input.dispose();
-    if (accepted == true && grade != null) {
-      final saved = await ref.read(evaluationControllerProvider.notifier).save(
-          e.copyWith(grade: grade, status: status, updatedAt: DateTime.now()));
-      if (mounted && saved != null)
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Nota cargada correctamente.')));
-    }
-  }
+  Future<void> _quickGrade(Evaluation e, String subjectName) =>
+      openEvaluationActivity(
+        context,
+        ref,
+        evaluation: e,
+        subjectName: subjectName,
+      );
 
   Future<void> _delete(Evaluation e) async {
     final linked =
@@ -315,6 +309,50 @@ class _Item extends StatelessWidget {
         const SizedBox(height: 4),
         Text(value, style: Theme.of(context).textTheme.titleMedium)
       ]));
+}
+
+class _SubjectScheduleCard extends StatelessWidget {
+  const _SubjectScheduleCard({required this.subject});
+
+  final Subject subject;
+
+  @override
+  Widget build(BuildContext context) {
+    final blocks = [...subject.scheduleBlocks]..sort((a, b) {
+        final day = a.weekday.compareTo(b.weekday);
+        return day != 0 ? day : a.startMinutes.compareTo(b.startMinutes);
+      });
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Horarios de cursado',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            if (blocks.isEmpty)
+              const Text('Sin horarios cargados.')
+            else
+              for (var index = 0; index < blocks.length; index++) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.schedule_outlined),
+                  title: Text(scheduleWeekdayLabel(blocks[index].weekday)),
+                  subtitle: Text([
+                    formatScheduleRange(blocks[index]),
+                    if (blocks[index].location?.trim().isNotEmpty == true)
+                      blocks[index].location!.trim(),
+                    classModalityLabel(blocks[index].modality),
+                  ].join(' · ')),
+                ),
+                if (index < blocks.length - 1) const Divider(height: 1),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 String _n(double value) => value == value.roundToDouble()

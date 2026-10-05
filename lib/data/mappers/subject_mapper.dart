@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/subject.dart';
+import 'subject_schedule_block_mapper.dart';
 import 'firestore_mapper_utils.dart';
 import 'academic_rule_mapper.dart';
 
@@ -47,6 +48,8 @@ abstract final class SubjectMapper {
         startDate: nullableDate(d['startDate']),
         endDate: nullableDate(d['endDate']),
         notes: d['notes'] as String?,
+        scheduleBlocks:
+            SubjectScheduleBlockMapper.fromValue(d['scheduleBlocks']),
         promotionRules: rules('promotionRules').cast(),
         regularityRules: rules('regularityRules').cast(),
         createdAt: dateFromFirestore(d['createdAt']),
@@ -79,6 +82,7 @@ abstract final class SubjectMapper {
             s.startDate == null ? null : Timestamp.fromDate(s.startDate!),
         'endDate': s.endDate == null ? null : Timestamp.fromDate(s.endDate!),
         'notes': _emptyToNull(s.notes),
+        'scheduleBlocks': SubjectScheduleBlockMapper.toList(s.scheduleBlocks),
         'promotionRules':
             s.promotionRules.map(AcademicRuleMapper.toMap).toList(),
         'regularityRules':

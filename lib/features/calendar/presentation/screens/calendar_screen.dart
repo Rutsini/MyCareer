@@ -10,6 +10,7 @@ import '../../../../domain/entities/todo_activity.dart';
 import '../../../activities/application/todo_activity_controller.dart';
 import '../../../activities/presentation/todo_activity_form.dart';
 import '../../../evaluations/application/evaluation_controller.dart';
+import '../../../evaluations/presentation/widgets/evaluation_activity_sheet.dart';
 import '../../../subjects/application/subject_controller.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
@@ -237,10 +238,22 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             leading: const Icon(Icons.school_outlined),
             title: Text(evaluation.name),
             subtitle: Text(
-              '${subject?.name ?? 'Materia'} · ${_formatDay(evaluation.date)}',
+              '${subject?.name ?? 'Materia'} · ${_formatDay(evaluation.date)}\n'
+              '${_status(evaluation.status)}',
             ),
-            trailing: Text(_status(evaluation.status)),
-            onTap: () => context.push(AppRoutes.editEvaluation(evaluation.id)),
+            isThreeLine: true,
+            trailing: IconButton(
+              tooltip: 'Editar evaluación',
+              onPressed: () =>
+                  context.push(AppRoutes.editEvaluation(evaluation.id)),
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            onTap: () => openEvaluationActivity(
+              context,
+              ref,
+              evaluation: evaluation,
+              subjectName: subject?.name ?? 'Materia',
+            ),
           ),
         );
       }).toList(),
@@ -411,12 +424,30 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         child: ListTile(
                           leading: const Icon(Icons.school_outlined),
                           title: Text(evaluation.name),
-                          subtitle: Text(subject?.name ?? 'Materia'),
-                          trailing: Text(_status(evaluation.status)),
-                          onTap: () {
+                          subtitle: Text(
+                            '${subject?.name ?? 'Materia'} · '
+                            '${_status(evaluation.status)}',
+                          ),
+                          trailing: IconButton(
+                            tooltip: 'Editar evaluación',
+                            onPressed: () {
+                              Navigator.pop(context);
+                              context.push(
+                                AppRoutes.editEvaluation(evaluation.id),
+                              );
+                            },
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          onTap: () async {
                             Navigator.pop(context);
-                            context
-                                .push(AppRoutes.editEvaluation(evaluation.id));
+                            await Future<void>.delayed(Duration.zero);
+                            if (!mounted) return;
+                            await openEvaluationActivity(
+                              context,
+                              ref,
+                              evaluation: evaluation,
+                              subjectName: subject?.name ?? 'Materia',
+                            );
                           },
                         ),
                       );

@@ -13,6 +13,7 @@ import '../../../profile/application/profile_controller.dart';
 import '../../../subjects/application/academic_year_controller.dart';
 import '../../../subjects/application/subject_controller.dart';
 import '../../application/dashboard_controller.dart';
+import '../widgets/dashboard_today_schedule.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -98,6 +99,8 @@ class _Dashboard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _QuickActions(enabled: data.selectedYear != null),
+        if (data.selectedYear != null)
+          DashboardTodaySchedule(subjects: data.yearSubjects),
         if (!data.hasCurrentYear)
           Card(
             child: ListTile(
@@ -183,6 +186,11 @@ class _QuickActions extends StatelessWidget {
                   enabled ? () => context.go(AppRoutes.newEvaluation) : null,
               icon: const Icon(Icons.post_add_outlined),
               label: const Text('Nueva evaluación'),
+            ),
+            OutlinedButton.icon(
+              onPressed: enabled ? () => context.go(AppRoutes.schedule) : null,
+              icon: const Icon(Icons.calendar_view_week_outlined),
+              label: const Text('Horario'),
             ),
           ]),
         ],

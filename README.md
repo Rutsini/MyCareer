@@ -1,4 +1,4 @@
-# MyCareer — v0.7
+# MyCareer — v0.8
 
 Aplicación académica personal desarrollada con Flutter para Android y Web.
 
@@ -6,9 +6,9 @@ MyCareer permite registrar y organizar la trayectoria académica de un estudiant
 
 ## Estado actual
 
-Versión: **0.7.0+7**
+Versión: **0.8.0+8**
 
-La v0.7 incluye todo lo anterior y además:
+La v0.8 incluye todo lo anterior y además:
 
 - Autenticación mediante correo electrónico y contraseña.
 - Integración con Firebase Authentication.
@@ -58,6 +58,13 @@ La v0.7 incluye todo lo anterior y además:
 - Promedio general y progreso de puntos electivos compartidos con Progreso.
 - Selector local de año y accesos rápidos a materias, evaluaciones, calendario y
   progreso.
+- Horarios de cursado configurables por materia, con día, rango horario,
+  modalidad, ubicación y enlace virtual opcional.
+- Vista semanal y vista de las clases del día, detección visual de
+  superposiciones y resumen del horario en Inicio.
+- Selección de año académico compartida entre Inicio, Materias y Horario.
+- Carga rápida de resultados y consulta del detalle de una evaluación desde
+  Calendario y desde la materia, conservando el formulario completo de edición.
 - Notificaciones locales y recordatorios configurables por evaluación.
 - Activación y permiso explícitos, defaults globales y hora para evaluaciones sin horario.
 - Reprogramación al editar, resolución o eliminación, y cancelación al desactivar o cerrar sesión.
@@ -149,6 +156,7 @@ lib/
 │   ├── subjects/
 │   ├── evaluations/
 │   ├── calendar/
+│   ├── schedule/
 │   ├── progress/
 │   ├── notifications/
 │   └── profile/
@@ -178,6 +186,7 @@ users/{uid}
 users/{uid}/academicYears/{year}
 
 users/{uid}/subjects/{subjectId}
+  scheduleBlocks[]
   promotionRules[]
   regularityRules[]
 
@@ -227,7 +236,7 @@ El historial se obtiene actualmente a partir de las propias materias.
 Las evaluaciones y actividades se mantienen en colecciones planas bajo el
 usuario. La aplicación observa cada colección una vez y filtra localmente por
 materia, mes y día. Esto evita consultas por cada día del calendario y no
-requiere índices compuestos en v0.7. Las actividades usan `schemaVersion: 1`,
+requiere índices compuestos en v0.8. Las actividades usan `schemaVersion: 1`,
 guardan sólo el día y nunca contienen campos de calificación.
 
 `settings.notifications` contiene `enabled`,
@@ -263,7 +272,8 @@ cache persistida de `progress`.
 Las reglas académicas son listas pequeñas embebidas en `Subject`; no existe una
 colección `academicRules`. Los documentos se guardan con `schemaVersion: 2` y el
 mapper mantiene compatibilidad con documentos v1 o sin versión, interpretando las
-listas ausentes como vacías. `currentCondition` no se persiste: documentos
+listas ausentes como vacías. Los bloques de horario también se embeben en cada
+materia y se validan individualmente, con un máximo de diez. `currentCondition` no se persiste: documentos
 anteriores pueden conservar ese campo hasta su próxima edición, momento en que se
 elimina, y la aplicación siempre lo ignora para calcular la condición en vivo.
 
@@ -378,14 +388,14 @@ flutter build apk --debug
 git diff --check
 ```
 
-Estado de la v0.7:
+Estado de la v0.8:
 
 ```text
 flutter analyze
 No issues found
 
 flutter test
-134 tests aprobados
+149 tests aprobados
 
 npm run test:firestore-rules
 8 tests aprobados
@@ -420,6 +430,10 @@ Notificaciones y recordatorios
 
 v0.7
 Actividades to-do integradas con calendario y lista
+✅ Completada
+
+v0.8
+Horarios de cursado por materia + vistas diaria y semanal + carga rápida de resultados
 ✅ Completada
 
 Próximas mejoras: por definir

@@ -9,12 +9,14 @@ import '../../../../core/widgets/content_page.dart';
 import '../../../../domain/entities/academic_year.dart';
 import '../../../../domain/entities/academic_rule.dart';
 import '../../../../domain/entities/subject.dart';
+import '../../../../domain/entities/subject_schedule_block.dart';
 import '../../../profile/application/profile_controller.dart';
 import '../../../evaluations/application/evaluation_controller.dart';
 import '../../application/academic_year_controller.dart';
 import '../../application/subject_controller.dart';
 import '../widgets/academic_rule_editor.dart';
 import '../widgets/academic_rule_type_help_button.dart';
+import '../widgets/subject_schedule_editor.dart';
 
 class SubjectFormScreen extends ConsumerStatefulWidget {
   const SubjectFormScreen({this.mode, this.subjectId, super.key});
@@ -47,6 +49,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
   bool _submitting = false;
   List<AcademicRule> _promotionRules = [];
   List<AcademicRule> _regularityRules = [];
+  List<SubjectScheduleBlock> _scheduleBlocks = [];
   TrackingMode get _mode =>
       widget.mode ??
       ref.read(subjectProvider(widget.subjectId!)).valueOrNull?.trackingMode ??
@@ -90,6 +93,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
     _approvedAt = s.approvedAt;
     _promotionRules = [...s.promotionRules];
     _regularityRules = [...s.regularityRules];
+    _scheduleBlocks = [...s.scheduleBlocks];
   }
 
   void _defaults(List<AcademicYear> years) {
@@ -138,6 +142,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         gradeMax: _number(_max.text) ?? 10,
         recoveryPolicy: _recoveryPolicy,
         notes: _optional(_notes.text),
+        scheduleBlocks: List.unmodifiable(_scheduleBlocks),
         promotionRules: List.unmodifiable(_promotionRules),
         regularityRules: List.unmodifiable(_regularityRules),
         createdAt: DateTime.now(),
@@ -194,6 +199,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
           _approvedAt = null;
           _promotionRules = [];
           _regularityRules = [];
+          _scheduleBlocks = [];
         });
       } else {
         context.go(AppRoutes.subject(id));
@@ -595,7 +601,19 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
                   onChanged: (v) => setState(() => _semester = v)))
         ],
         const SizedBox(height: 12),
-        _advanced()
+        _advanced(),
+        const SizedBox(height: 12),
+        ExpansionTile(
+          key: const Key('subject-schedule-section'),
+          tilePadding: EdgeInsets.zero,
+          title: const Text('Horarios de cursado'),
+          children: [
+            SubjectScheduleEditor(
+              blocks: _scheduleBlocks,
+              onChanged: (blocks) => setState(() => _scheduleBlocks = blocks),
+            ),
+          ],
+        ),
       ]);
 
   Future<void> _markCurrent(AcademicYear year) async {
@@ -740,6 +758,7 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
         courseStatus: CourseStatus.active,
         gradeMin: _number(_min.text) ?? 0,
         gradeMax: _number(_max.text) ?? 10,
+        scheduleBlocks: List.unmodifiable(_scheduleBlocks),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

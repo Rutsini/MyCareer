@@ -1,5 +1,6 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
 import 'academic_rule.dart';
+import 'subject_schedule_block.dart';
 
 enum TrackingMode { tracked, historical }
 
@@ -41,6 +42,7 @@ class Subject {
       this.startDate,
       this.endDate,
       this.notes,
+      this.scheduleBlocks = const [],
       this.promotionRules = const [],
       this.regularityRules = const [],
       required this.createdAt,
@@ -67,6 +69,7 @@ class Subject {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? notes;
+  final List<SubjectScheduleBlock> scheduleBlocks;
   final List<AcademicRule> promotionRules;
   final List<AcademicRule> regularityRules;
   final DateTime createdAt;
@@ -93,6 +96,15 @@ class Subject {
         regularityRules.length > maxAcademicRulesPerCategory)
       return 'Podés configurar hasta $maxAcademicRulesPerCategory condiciones '
           'por categoría.';
+    if (scheduleBlocks.length > maxSubjectScheduleBlocks)
+      return 'Podés cargar hasta $maxSubjectScheduleBlocks horarios por materia.';
+    final scheduleIds = <String>{};
+    for (final block in scheduleBlocks) {
+      final error = block.validate();
+      if (error != null) return error;
+      if (!scheduleIds.add(block.id.trim()))
+        return 'Cada horario debe tener un identificador diferente.';
+    }
     if (finalGrade != null &&
         (finalGrade! < gradeMin || finalGrade! > gradeMax))
       return 'La nota final debe estar dentro de la escala.';
@@ -111,6 +123,7 @@ class Subject {
     List<AcademicRule>? regularityRules,
     RecoveryPolicy? recoveryPolicy,
     CourseStatus? courseStatus,
+    List<SubjectScheduleBlock>? scheduleBlocks,
     DateTime? updatedAt,
   }) =>
       Subject(
@@ -136,6 +149,8 @@ class Subject {
           startDate: startDate,
           endDate: endDate,
           notes: notes,
+          scheduleBlocks:
+              List.unmodifiable(scheduleBlocks ?? this.scheduleBlocks),
           promotionRules: promotionRules ?? this.promotionRules,
           regularityRules: regularityRules ?? this.regularityRules,
           createdAt: createdAt,

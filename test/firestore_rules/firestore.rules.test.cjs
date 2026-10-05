@@ -122,6 +122,7 @@ function subject(overrides = {}) {
     startDate: null,
     endDate: null,
     notes: null,
+    scheduleBlocks: [],
     promotionRules: [],
     regularityRules: [],
     createdAt: timestamp,
@@ -264,6 +265,42 @@ test('una materia requiere un año válido y un esquema estricto', async () => {
     setDoc(
       doc(authenticatedDb('alice'), subjectPath),
       subject({ subjectType: 'elective', electivePoints: null }),
+    ),
+  );
+  await assertSucceeds(
+    setDoc(
+      doc(authenticatedDb('alice'), subjectPath),
+      subject({
+        scheduleBlocks: [
+          {
+            id: 'monday-afternoon',
+            weekday: 1,
+            startMinutes: 17 * 60,
+            endMinutes: 19 * 60,
+            location: 'Aula 4',
+            modality: 'presential',
+            virtualLink: null,
+          },
+        ],
+      }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(authenticatedDb('alice'), subjectPath),
+      subject({
+        scheduleBlocks: [
+          {
+            id: 'invalid-range',
+            weekday: 1,
+            startMinutes: 19 * 60,
+            endMinutes: 17 * 60,
+            location: null,
+            modality: 'presential',
+            virtualLink: null,
+          },
+        ],
+      }),
     ),
   );
   await assertFails(

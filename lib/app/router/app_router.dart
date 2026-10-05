@@ -8,6 +8,7 @@ import '../../features/calendar/presentation/screens/calendar_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/progress/presentation/screens/progress_screen.dart';
+import '../../features/schedule/presentation/screens/schedule_screen.dart';
 import '../../features/shell/presentation/main_shell.dart';
 import '../../features/subjects/presentation/screens/subjects_screen.dart';
 import '../../features/subjects/presentation/screens/subject_detail_screen.dart';
@@ -42,6 +43,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.register,
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.schedule,
+        builder: (context, state) => const ScheduleScreen(),
       ),
       GoRoute(
         path: AppRoutes.newEvaluation,
@@ -87,7 +92,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                     path: ':subjectId',
                     builder: (context, state) => SubjectDetailScreen(
-                        subjectId: state.pathParameters['subjectId']!),
+                        subjectId: state.pathParameters['subjectId']!,
+                        initialTab:
+                            state.uri.queryParameters['tab'] == 'evaluations'
+                                ? 1
+                                : 0),
                     routes: [
                       GoRoute(
                           path: 'edit',

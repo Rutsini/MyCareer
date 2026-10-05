@@ -8,7 +8,7 @@ import '../../subjects/application/academic_controller.dart';
 import '../../subjects/application/academic_year_controller.dart';
 import '../../subjects/application/subject_controller.dart';
 
-final dashboardYearIdProvider = StateProvider<String?>((ref) => null);
+final dashboardYearIdProvider = selectedYearIdProvider;
 final dashboardNowProvider = Provider<DateTime>((ref) => DateTime.now());
 final dashboardCalculatorProvider = Provider(
   (ref) => DashboardCalculator(

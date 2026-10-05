@@ -40,9 +40,7 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
             return _NoYears(onCreate: () => _createYear(context));
           var selected = ref.watch(selectedYearIdProvider);
           if (!years.any((year) => year.id == selected)) {
-            selected = (years.where((year) => year.isCurrent).firstOrNull ??
-                    years.first)
-                .id;
+            selected = resolveSelectedAcademicYearId(years, selected);
             Future.microtask(() =>
                 ref.read(selectedYearIdProvider.notifier).state = selected);
           }
@@ -67,6 +65,10 @@ class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
                         ref.read(selectedYearIdProvider.notifier).state = value,
                   ),
                   Wrap(spacing: 8, children: [
+                    OutlinedButton.icon(
+                        onPressed: () => context.go(AppRoutes.schedule),
+                        icon: const Icon(Icons.calendar_view_week_outlined),
+                        label: const Text('Horario')),
                     OutlinedButton.icon(
                         onPressed: () => _manageYears(context, years),
                         icon: const Icon(Icons.calendar_month),

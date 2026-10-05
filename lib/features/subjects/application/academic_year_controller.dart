@@ -14,6 +14,19 @@ final academicYearRepositoryProvider = Provider<AcademicYearRepository>((ref) =>
 final academicYearsProvider = StreamProvider<List<AcademicYear>>(
     (ref) => ref.watch(academicYearRepositoryProvider).watchYears());
 final selectedYearIdProvider = StateProvider<String?>((ref) => null);
+
+String? resolveSelectedAcademicYearId(
+  List<AcademicYear> years,
+  String? selectedId,
+) {
+  if (years.any((year) => year.id == selectedId)) return selectedId;
+  final current = years.where((year) => year.isCurrent).firstOrNull;
+  if (current != null) return current.id;
+  if (years.isEmpty) return null;
+  final sorted = [...years]..sort((a, b) => b.year.compareTo(a.year));
+  return sorted.first.id;
+}
+
 final academicYearControllerProvider =
     StateNotifierProvider<AcademicYearController, AsyncValue<void>>((ref) =>
         AcademicYearController(ref.watch(academicYearRepositoryProvider)));

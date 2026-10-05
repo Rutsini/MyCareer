@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static String subject(String id) => '/subjects/$id';
   static String editSubject(String id) => '/subjects/$id/edit';
   static const calendar = '/calendar';
+  static const schedule = '/schedule';
   static const progress = '/progress';
   static const profile = '/profile';
   static const newEvaluation = '/evaluations/new';
@@ -18,6 +19,7 @@ abstract final class AppRoutes {
     dashboard,
     subjects,
     calendar,
+    schedule,
     progress,
     profile,
   };
