@@ -1,6 +1,8 @@
 import 'evaluation.dart';
 import 'subject.dart';
 
+const maxAcademicRulesPerCategory = 20;
+
 enum AcademicRuleType {
   minimumAverage,
   minimumGradeByType,

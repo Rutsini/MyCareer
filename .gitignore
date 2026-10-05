@@ -4,6 +4,10 @@
 .packages
 build/
 coverage/
+node_modules/
+.firebase/
+firebase-debug.log
+firestore-debug.log
 android/local.properties
 android/app/google-services.json
 

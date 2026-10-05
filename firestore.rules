@@ -2,13 +2,543 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isNullableString(value, maxLength) {
+      return value == null ||
+        (value is string && value.size() <= maxLength);
+    }
+
+    function isNullableNumber(value) {
+      return value == null || value is number;
+    }
+
+    function isNullableTimestamp(value) {
+      return value == null || value is timestamp;
+    }
+
+    function validOffsetsAt(offsets, index) {
+      return offsets.size() <= index ||
+        (offsets[index] is int && offsets[index] >= 0);
+    }
+
+    function validOffsets(offsets) {
+      return offsets is list &&
+        offsets.size() <= 5 &&
+        validOffsetsAt(offsets, 0) &&
+        validOffsetsAt(offsets, 1) &&
+        validOffsetsAt(offsets, 2) &&
+        validOffsetsAt(offsets, 3) &&
+        validOffsetsAt(offsets, 4);
+    }
+
+    function validNotificationSettings(data) {
+      return data is map &&
+        data.keys().hasOnly([
+          'enabled',
+          'defaultReminderOffsetsMinutes',
+          'allDayReminderHour',
+          'allDayReminderMinute'
+        ]) &&
+        data.keys().hasAll([
+          'enabled',
+          'defaultReminderOffsetsMinutes',
+          'allDayReminderHour',
+          'allDayReminderMinute'
+        ]) &&
+        data.enabled is bool &&
+        validOffsets(data.defaultReminderOffsetsMinutes) &&
+        data.allDayReminderHour is int &&
+        data.allDayReminderHour >= 0 &&
+        data.allDayReminderHour <= 23 &&
+        data.allDayReminderMinute is int &&
+        data.allDayReminderMinute >= 0 &&
+        data.allDayReminderMinute <= 59;
+    }
+
+    function validCareer(data) {
+      return data is map &&
+        data.keys().hasOnly([
+          'name',
+          'currentYear',
+          'totalSubjects',
+          'requiredElectivePoints'
+        ]) &&
+        data.keys().hasAll([
+          'name',
+          'currentYear',
+          'totalSubjects',
+          'requiredElectivePoints'
+        ]) &&
+        isNullableString(data.name, 150) &&
+        (data.currentYear == null ||
+          (data.currentYear is int &&
+            data.currentYear >= 1 && data.currentYear <= 50)) &&
+        (data.totalSubjects == null ||
+          (data.totalSubjects is int &&
+            data.totalSubjects >= 1 && data.totalSubjects <= 1000)) &&
+        (data.requiredElectivePoints == null ||
+          (data.requiredElectivePoints is number &&
+            data.requiredElectivePoints > 0));
+    }
+
+    function validUserSettings(data) {
+      return data is map &&
+        data.keys().hasOnly([
+          'theme',
+          'defaultGradeMin',
+          'defaultGradeMax',
+          'notifications'
+        ]) &&
+        data.keys().hasAll([
+          'theme',
+          'defaultGradeMin',
+          'defaultGradeMax',
+          'notifications'
+        ]) &&
+        data.theme in ['system', 'light', 'dark'] &&
+        data.defaultGradeMin is number &&
+        data.defaultGradeMax is number &&
+        data.defaultGradeMin < data.defaultGradeMax &&
+        validNotificationSettings(data.notifications);
+    }
+
+    function validUserProfile(data) {
+      return data.keys().hasOnly([
+          'displayName',
+          'email',
+          'career',
+          'settings',
+          'createdAt',
+          'updatedAt',
+          'schemaVersion'
+        ]) &&
+        data.keys().hasAll([
+          'displayName',
+          'email',
+          'career',
+          'settings',
+          'createdAt',
+          'updatedAt',
+          'schemaVersion'
+        ]) &&
+        isNullableString(data.displayName, 100) &&
+        data.email is string &&
+        data.email.size() > 0 &&
+        data.email.size() <= 320 &&
+        validCareer(data.career) &&
+        validUserSettings(data.settings) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.schemaVersion is int && data.schemaVersion >= 1;
+    }
+
+    function validAcademicYear(data) {
+      return data.keys().hasOnly([
+          'year',
+          'isCurrent',
+          'startDate',
+          'endDate',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'year',
+          'isCurrent',
+          'startDate',
+          'endDate',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.year is int && data.year >= 1900 && data.year <= 2200 &&
+        data.isCurrent is bool &&
+        isNullableTimestamp(data.startDate) &&
+        isNullableTimestamp(data.endDate) &&
+        (data.startDate == null || data.endDate == null ||
+          data.startDate < data.endDate) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function validEvaluationType(value) {
+      return value in [
+        'partial',
+        'recovery',
+        'practicalWork',
+        'deliverable',
+        'project',
+        'colloquium',
+        'finalExam',
+        'other'
+      ];
+    }
+
+    function validEvaluationTypeAt(types, index) {
+      return types.size() <= index || validEvaluationType(types[index]);
+    }
+
+    function validEvaluationTypes(types) {
+      return types is list &&
+        types.size() <= 8 &&
+        validEvaluationTypeAt(types, 0) &&
+        validEvaluationTypeAt(types, 1) &&
+        validEvaluationTypeAt(types, 2) &&
+        validEvaluationTypeAt(types, 3) &&
+        validEvaluationTypeAt(types, 4) &&
+        validEvaluationTypeAt(types, 5) &&
+        validEvaluationTypeAt(types, 6) &&
+        validEvaluationTypeAt(types, 7);
+    }
+
+    function validRuleConfig(rule, gradeScale) {
+      return
+        (rule.type == 'minimumAverage' &&
+          rule.config.keys().hasOnly(['minimumAverage']) &&
+          rule.config.minimumAverage is number &&
+          rule.config.minimumAverage >= gradeScale.min &&
+          rule.config.minimumAverage <= gradeScale.max) ||
+        (rule.type == 'minimumGradeByType' &&
+          rule.config.keys().hasOnly(['evaluationType', 'minimumGrade']) &&
+          validEvaluationType(rule.config.evaluationType) &&
+          rule.config.evaluationType != 'recovery' &&
+          rule.config.minimumGrade is number &&
+          rule.config.minimumGrade >= gradeScale.min &&
+          rule.config.minimumGrade <= gradeScale.max) ||
+        (rule.type == 'minimumApprovedPercentage' &&
+          rule.config.keys().hasOnly([
+            'minimumPercentage', 'evaluationTypes', 'mandatoryOnly'
+          ]) &&
+          rule.config.minimumPercentage is number &&
+          rule.config.minimumPercentage > 0 &&
+          rule.config.minimumPercentage <= 100 &&
+          validEvaluationTypes(rule.config.evaluationTypes) &&
+          rule.config.mandatoryOnly is bool) ||
+        (rule.type == 'minimumApprovedCount' &&
+          rule.config.keys().hasOnly([
+            'minimumCount', 'evaluationTypes', 'mandatoryOnly'
+          ]) &&
+          rule.config.minimumCount is int &&
+          rule.config.minimumCount > 0 &&
+          validEvaluationTypes(rule.config.evaluationTypes) &&
+          rule.config.mandatoryOnly is bool) ||
+        (rule.type == 'allEvaluationsApproved' &&
+          rule.config.keys().hasOnly(['evaluationTypes', 'mandatoryOnly']) &&
+          validEvaluationTypes(rule.config.evaluationTypes) &&
+          rule.config.mandatoryOnly is bool) ||
+        (rule.type == 'requiredEvaluation' &&
+          rule.config.keys().hasOnly(['evaluationId']) &&
+          rule.config.evaluationId is string &&
+          rule.config.evaluationId.size() > 0);
+    }
+
+    function validAcademicRule(rule, gradeScale) {
+      return rule is map &&
+        rule.keys().hasOnly([
+          'id', 'type', 'name', 'description', 'enabled', 'order', 'config'
+        ]) &&
+        rule.keys().hasAll([
+          'id', 'type', 'name', 'description', 'enabled', 'order', 'config'
+        ]) &&
+        rule.id is string && rule.id.size() > 0 && rule.id.size() <= 100 &&
+        rule.type in [
+          'minimumAverage',
+          'minimumGradeByType',
+          'minimumApprovedPercentage',
+          'minimumApprovedCount',
+          'allEvaluationsApproved',
+          'requiredEvaluation'
+        ] &&
+        rule.name is string && rule.name.size() >= 2 &&
+        rule.name.size() <= 100 &&
+        isNullableString(rule.description, 500) &&
+        rule.enabled is bool &&
+        rule.order is int && rule.order >= 0 &&
+        rule.config is map &&
+        validRuleConfig(rule, gradeScale);
+    }
+
+    function validRuleAt(rules, index, gradeScale) {
+      return rules.size() <= index ||
+        validAcademicRule(rules[index], gradeScale);
+    }
+
+    function validAcademicRules(rules, gradeScale) {
+      return rules is list &&
+        rules.size() <= 20 &&
+        validRuleAt(rules, 0, gradeScale) &&
+        validRuleAt(rules, 1, gradeScale) &&
+        validRuleAt(rules, 2, gradeScale) &&
+        validRuleAt(rules, 3, gradeScale) &&
+        validRuleAt(rules, 4, gradeScale) &&
+        validRuleAt(rules, 5, gradeScale) &&
+        validRuleAt(rules, 6, gradeScale) &&
+        validRuleAt(rules, 7, gradeScale) &&
+        validRuleAt(rules, 8, gradeScale) &&
+        validRuleAt(rules, 9, gradeScale) &&
+        validRuleAt(rules, 10, gradeScale) &&
+        validRuleAt(rules, 11, gradeScale) &&
+        validRuleAt(rules, 12, gradeScale) &&
+        validRuleAt(rules, 13, gradeScale) &&
+        validRuleAt(rules, 14, gradeScale) &&
+        validRuleAt(rules, 15, gradeScale) &&
+        validRuleAt(rules, 16, gradeScale) &&
+        validRuleAt(rules, 17, gradeScale) &&
+        validRuleAt(rules, 18, gradeScale) &&
+        validRuleAt(rules, 19, gradeScale);
+    }
+
+    function validGradeScale(scale) {
+      return scale is map &&
+        scale.keys().hasOnly(['min', 'max']) &&
+        scale.keys().hasAll(['min', 'max']) &&
+        scale.min is number && scale.max is number && scale.min < scale.max;
+    }
+
+    function validSubject(data, userId) {
+      return data.keys().hasOnly([
+          'academicYearId',
+          'academicYear',
+          'trackingMode',
+          'name',
+          'shortName',
+          'code',
+          'commission',
+          'subjectType',
+          'electivePoints',
+          'duration',
+          'semester',
+          'gradeScale',
+          'recoveryPolicy',
+          'courseStatus',
+          'finalOutcome',
+          'finalGrade',
+          'approvedAt',
+          'startDate',
+          'endDate',
+          'notes',
+          'promotionRules',
+          'regularityRules',
+          'createdAt',
+          'updatedAt',
+          'schemaVersion'
+        ]) &&
+        data.keys().hasAll([
+          'academicYearId',
+          'academicYear',
+          'trackingMode',
+          'name',
+          'shortName',
+          'code',
+          'commission',
+          'subjectType',
+          'electivePoints',
+          'duration',
+          'semester',
+          'gradeScale',
+          'recoveryPolicy',
+          'courseStatus',
+          'finalOutcome',
+          'finalGrade',
+          'approvedAt',
+          'startDate',
+          'endDate',
+          'notes',
+          'promotionRules',
+          'regularityRules',
+          'createdAt',
+          'updatedAt',
+          'schemaVersion'
+        ]) &&
+        data.academicYearId is string &&
+        data.academicYearId.size() > 0 &&
+        data.academicYear is int &&
+        exists(/databases/$(database)/documents/users/$(userId)/academicYears/$(data.academicYearId)) &&
+        get(/databases/$(database)/documents/users/$(userId)/academicYears/$(data.academicYearId)).data.year == data.academicYear &&
+        data.trackingMode in ['tracked', 'historical'] &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        isNullableString(data.shortName, 15) &&
+        isNullableString(data.code, 50) &&
+        isNullableString(data.commission, 100) &&
+        data.subjectType in ['mandatory', 'elective'] &&
+        ((data.subjectType == 'mandatory' && data.electivePoints == null) ||
+          (data.subjectType == 'elective' &&
+            data.electivePoints is number && data.electivePoints > 0)) &&
+        data.duration in ['annual', 'semester'] &&
+        ((data.duration == 'annual' && data.semester == null) ||
+          (data.duration == 'semester' &&
+            data.semester in ['first', 'second'])) &&
+        validGradeScale(data.gradeScale) &&
+        data.recoveryPolicy in ['replaceGrade', 'highestGrade', 'approvalOnly'] &&
+        data.courseStatus in ['pending', 'active', 'finished', 'abandoned'] &&
+        ((data.trackingMode == 'tracked' && data.finalOutcome == null) ||
+          (data.trackingMode == 'historical' && data.finalOutcome in [
+            'approved', 'promoted', 'regularized', 'failed', 'abandoned'
+          ])) &&
+        (data.finalGrade == null ||
+          (data.finalGrade is number &&
+            data.finalGrade >= data.gradeScale.min &&
+            data.finalGrade <= data.gradeScale.max)) &&
+        (!((data.finalOutcome == 'abandoned') ||
+            (data.finalOutcome == 'regularized')) || data.finalGrade == null) &&
+        isNullableTimestamp(data.approvedAt) &&
+        isNullableTimestamp(data.startDate) &&
+        isNullableTimestamp(data.endDate) &&
+        (data.startDate == null || data.endDate == null ||
+          data.startDate < data.endDate) &&
+        isNullableString(data.notes, 5000) &&
+        validAcademicRules(data.promotionRules, data.gradeScale) &&
+        validAcademicRules(data.regularityRules, data.gradeScale) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.schemaVersion == 2;
+    }
+
+    function validReminder(reminder) {
+      return reminder is map &&
+        reminder.keys().hasOnly(['id', 'offsetMinutes', 'enabled']) &&
+        reminder.keys().hasAll(['id', 'offsetMinutes', 'enabled']) &&
+        reminder.id is string && reminder.id.size() > 0 &&
+        reminder.id.size() <= 100 &&
+        reminder.offsetMinutes is int && reminder.offsetMinutes >= 0 &&
+        reminder.enabled is bool;
+    }
+
+    function validReminderAt(reminders, index) {
+      return reminders.size() <= index || validReminder(reminders[index]);
+    }
+
+    function validReminders(reminders) {
+      return reminders is list &&
+        reminders.size() <= 5 &&
+        validReminderAt(reminders, 0) &&
+        validReminderAt(reminders, 1) &&
+        validReminderAt(reminders, 2) &&
+        validReminderAt(reminders, 3) &&
+        validReminderAt(reminders, 4);
+    }
+
+    function validRecovery(data, userId, evaluationId) {
+      return (!data.isRecovery && data.type != 'recovery' &&
+          data.recoveryOfEvaluationId == null) ||
+        (data.isRecovery && data.type == 'recovery' &&
+          data.recoveryOfEvaluationId is string &&
+          data.recoveryOfEvaluationId.size() > 0 &&
+          data.recoveryOfEvaluationId != evaluationId &&
+          exists(/databases/$(database)/documents/users/$(userId)/evaluations/$(data.recoveryOfEvaluationId)) &&
+          get(/databases/$(database)/documents/users/$(userId)/evaluations/$(data.recoveryOfEvaluationId)).data.subjectId == data.subjectId &&
+          get(/databases/$(database)/documents/users/$(userId)/evaluations/$(data.recoveryOfEvaluationId)).data.isRecovery == false);
+    }
+
+    function validEvaluation(data, userId, evaluationId) {
+      return data.keys().hasOnly([
+          'subjectId',
+          'academicYear',
+          'name',
+          'type',
+          'date',
+          'allDay',
+          'mandatory',
+          'countsTowardAverage',
+          'grade',
+          'maxGrade',
+          'minimumPassingGradeOverride',
+          'weight',
+          'presented',
+          'status',
+          'isRecovery',
+          'recoveryOfEvaluationId',
+          'notes',
+          'createdAt',
+          'updatedAt',
+          'reminders',
+          'schemaVersion'
+        ]) &&
+        data.keys().hasAll([
+          'subjectId',
+          'academicYear',
+          'name',
+          'type',
+          'date',
+          'allDay',
+          'mandatory',
+          'countsTowardAverage',
+          'grade',
+          'maxGrade',
+          'minimumPassingGradeOverride',
+          'weight',
+          'presented',
+          'status',
+          'isRecovery',
+          'recoveryOfEvaluationId',
+          'notes',
+          'createdAt',
+          'updatedAt',
+          'reminders',
+          'schemaVersion'
+        ]) &&
+        data.subjectId is string && data.subjectId.size() > 0 &&
+        exists(/databases/$(database)/documents/users/$(userId)/subjects/$(data.subjectId)) &&
+        data.academicYear is int &&
+        get(/databases/$(database)/documents/users/$(userId)/subjects/$(data.subjectId)).data.academicYear == data.academicYear &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        validEvaluationType(data.type) &&
+        data.date is timestamp &&
+        data.allDay is bool &&
+        data.mandatory is bool &&
+        data.countsTowardAverage is bool &&
+        data.maxGrade is number && data.maxGrade > 0 &&
+        (data.grade == null ||
+          (data.grade is number && data.grade >= 0 &&
+            data.grade <= data.maxGrade)) &&
+        (data.minimumPassingGradeOverride == null ||
+          (data.minimumPassingGradeOverride is number &&
+            data.minimumPassingGradeOverride >= 0 &&
+            data.minimumPassingGradeOverride <= data.maxGrade)) &&
+        data.weight is number && data.weight > 0 &&
+        (data.presented == null || data.presented is bool) &&
+        data.status in [
+          'pending', 'submitted', 'approved', 'failed', 'absent', 'recovered'
+        ] &&
+        data.isRecovery is bool &&
+        validRecovery(data, userId, evaluationId) &&
+        isNullableString(data.notes, 5000) &&
+        validReminders(data.reminders) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.schemaVersion == 2;
+    }
+
     match /users/{userId} {
-      allow read, create, update, delete: if request.auth != null
-        && request.auth.uid == userId;
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        validUserProfile(request.resource.data);
+      allow delete: if false;
+
+      match /academicYears/{yearId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          validAcademicYear(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /subjects/{subjectId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          validSubject(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /evaluations/{evaluationId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          validEvaluation(request.resource.data, userId, evaluationId);
+        allow delete: if isOwner(userId);
+      }
 
       match /{document=**} {
-        allow read, write: if request.auth != null
-          && request.auth.uid == userId;
+        allow read, write: if false;
       }
     }
   }

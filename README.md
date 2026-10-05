@@ -272,7 +272,18 @@ Las reglas de Firestore permiten acceder al árbol del usuario únicamente cuand
 request.auth.uid == userId
 ```
 
-Esto mantiene los datos de cada cuenta aislados.
+Además del aislamiento por cuenta, cada colección valida su esquema, tipos,
+rangos y relaciones. Por ejemplo, una materia debe referenciar un año académico
+del mismo usuario y una evaluación debe pertenecer a una materia del mismo año.
+Los campos inesperados y cualquier ruta no declarada se rechazan por defecto.
+
+Las reglas se prueban contra el emulador local. Requiere Node.js 20 o superior
+y Java 21:
+
+```text
+npm install
+npm run test:firestore-rules
+```
 
 ## Firebase
 
@@ -361,7 +372,10 @@ flutter analyze
 No issues found
 
 flutter test
-121 tests aprobados
+122 tests aprobados
+
+npm run test:firestore-rules
+7 tests aprobados
 ```
 
 ## Roadmap

@@ -89,6 +89,10 @@ class Subject {
       return 'Seleccioná el cuatrimestre.';
     if (gradeMin >= gradeMax)
       return 'La nota mínima debe ser menor a la máxima.';
+    if (promotionRules.length > maxAcademicRulesPerCategory ||
+        regularityRules.length > maxAcademicRulesPerCategory)
+      return 'Podés configurar hasta $maxAcademicRulesPerCategory condiciones '
+          'por categoría.';
     if (finalGrade != null &&
         (finalGrade! < gradeMin || finalGrade! > gradeMax))
       return 'La nota final debe estar dentro de la escala.';

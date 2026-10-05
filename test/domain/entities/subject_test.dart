@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_career/domain/entities/academic_rule.dart';
 import 'package:my_career/domain/entities/subject.dart';
 
 Subject subject({
@@ -10,6 +11,7 @@ Subject subject({
   Semester? semester,
   FinalOutcome? outcome,
   double? grade,
+  List<AcademicRule> promotionRules = const [],
 }) =>
     Subject(
       id: '',
@@ -26,6 +28,7 @@ Subject subject({
           : CourseStatus.finished,
       finalOutcome: outcome,
       finalGrade: grade,
+      promotionRules: promotionRules,
       gradeMin: 0,
       gradeMax: 10,
       createdAt: DateTime(2026),
@@ -56,6 +59,20 @@ void main() {
                     outcome: FinalOutcome.approved,
                     grade: 11)
                 .validate(),
+            isNotNull));
+    test(
+        'limita las condiciones por categoría',
+        () => expect(
+            subject(
+                promotionRules: List.generate(
+                    maxAcademicRulesPerCategory + 1,
+                    (index) => AcademicRule(
+                          id: '$index',
+                          type: AcademicRuleType.minimumApprovedCount,
+                          name: 'Condición $index',
+                          order: index,
+                          config: const MinimumApprovedCountConfig(1),
+                        ))).validate(),
             isNotNull));
   });
   group('Historical subject', () {
